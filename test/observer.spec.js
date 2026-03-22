@@ -261,11 +261,13 @@ test.describe('Component observers', () => {
             window.XShadow.shadowMode = 'open';
             window._ioTargets = [];
             window.IntersectionObserver = class {
+                disconnect() { }
+
                 observe(target) {
                     window._ioTargets.push(target.tagName.toLowerCase());
                 }
+
                 unobserve() { }
-                disconnect() { }
             };
         });
 
@@ -295,11 +297,13 @@ test.describe('Component observers', () => {
             window._mountedCount = 0;
             window._ioTargets = [];
             window.IntersectionObserver = class {
+                disconnect() { }
+
                 observe(target) {
                     window._ioTargets.push(target.tagName.toLowerCase());
                 }
+
                 unobserve() { }
-                disconnect() { }
             };
 
             window.Component.bootstrap();
@@ -335,11 +339,14 @@ test.describe('Component observers', () => {
                 constructor(callback) {
                     window._ioCallback = callback;
                 }
+
+                disconnect() { }
+
                 observe(target) {
                     window._ioTargets.push(target);
                 }
+
                 unobserve() { }
-                disconnect() { }
             };
         });
 

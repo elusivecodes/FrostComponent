@@ -233,6 +233,53 @@ test.describe('Component autoload', () => {
         expect(events).toEqual(['connected', 'initialized']);
     });
 
+    test('runs connected scripts again when a shadow component reconnects', async ({ page }) => {
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-shadow-order')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <!-- shadow -->
+                        <script connected>
+                            window._events.push('connected');
+                        </script>
+                        <script>
+                            window._events.push('initialized');
+                        </script>
+                        <div id="shadow-order"></div>
+                    `,
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window._events = [];
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-shadow-order></x-shadow-order>';
+        });
+
+        await page.waitForFunction(() => {
+            const host = document.querySelector('x-shadow-order');
+            return host && host.loaded === true && window._events.length === 2;
+        });
+
+        await page.evaluate(() => {
+            const host = document.querySelector('x-shadow-order');
+            host.remove();
+            document.body.appendChild(host);
+        });
+
+        await page.waitForFunction(() => window._events.length === 3);
+
+        const events = await page.evaluate(() => window._events || []);
+        expect(events).toEqual(['connected', 'initialized', 'connected']);
+    });
+
 
     test('does not define the same component twice when requested concurrently', async ({ page }) => {
         let defineCalls = 0;

@@ -1715,6 +1715,7 @@
             }
 
             if (this.#initialized) {
+                this.onConnected();
                 return;
             }
 
@@ -1738,6 +1739,7 @@
                 }
 
                 this.#connected = true;
+                this.onConnected();
 
                 const event = new Event('connected');
                 this.dispatchEvent(event);
@@ -1839,6 +1841,14 @@
                     });
                 });
             }, 0);
+        }
+
+        /**
+         * Lifecycle hook that runs when the component actually connects.
+         * Runs on the initial connection and on later shadow-mode reconnections.
+         */
+        onConnected() {
+
         }
 
         /**
@@ -2080,8 +2090,8 @@
 
         return Promise.all(promises).then(() => {
             const ComponentClass = class extends Component {
-                connectedCallback() {
-                    super.connectedCallback();
+                onConnected() {
+                    super.onConnected();
 
                     for (const script of connectedScripts) {
                         Function.constructor(script.innerText).call(this);

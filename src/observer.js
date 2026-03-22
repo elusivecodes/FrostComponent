@@ -1,5 +1,5 @@
-import { load } from './loader.js';
 import { flattenElements, isComponent } from './helpers.js';
+import { load } from './loader.js';
 import Suspense from './suspense.js';
 import { loadedScripts, loadedStylesheets } from './vars.js';
 

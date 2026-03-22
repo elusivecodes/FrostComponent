@@ -6,14 +6,14 @@
 [![minzipped size](https://img.shields.io/bundlejs/size/%40fr0st%2Fcomponent?format=minzip&style=flat-square)](https://bundlejs.com/?q=@fr0st/component)
 [![license](https://img.shields.io/github/license/elusivecodes/FrostComponent?style=flat-square)](./LICENSE)
 
-Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading. Provides reactive custom elements with dynamic component loading and no compilation step.
+Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading, with dynamic component loading and no compilation step.
 
 ## Highlights
 
 - Default ESM export for browser projects and bundlers
 - Browser UMD bundle in `dist/` exposed as `globalThis.Component`
 - No compilation step or virtual DOM
-- Reactive component state powered by `@fr0st/state`
+- Reactive component state built on [`@fr0st/state`](https://www.npmjs.com/package/@fr0st/state)
 - HTML template autoloading for `x-*` elements
 - Text, attribute, property, event, and input bindings
 - Control-flow directives with `x:if`, `x:else-if`, `x:else`, and `x:each`
@@ -80,7 +80,7 @@ Point `Component.bootstrap()` at a folder of component templates and drop `x-*` 
 <button @click="{ this.state.count++ }">Count: {count}</button>
 ```
 
-See the full examples in [examples/counter.html](./examples/counter.html) and [examples/todo.html](./examples/todo.html).
+See the [`examples/`](./examples/) folder for complete browser and component examples.
 
 ### JavaScript-defined components
 
@@ -119,7 +119,7 @@ FrostComponent revolves around a small base class and declarative template bindi
 - Component tag names must begin with `x-`
 - Components must render exactly one root element
 - Root `<slot>` elements are not allowed
-- `this.state` is a FrostState `StateStore`
+- `this.state` is a `StateStore` from [`@fr0st/state`](https://www.npmjs.com/package/@fr0st/state)
 - Non-`x:` host attributes become initial state and are removed from the host
 - `x:key` exposes keyed descendants directly on the component instance
 
@@ -158,15 +158,20 @@ this.saveButton; // <button>
 
 ## Bindings
 
-Expressions use two forms:
+Binding syntax is context-sensitive rather than "full JavaScript everywhere".
 
-- Bare expressions such as `count` resolve through `this.state.count`
-- Braced expressions such as `{ this.state.count + 1 }` evaluate as JavaScript with `this` bound to the component
+Text interpolation note:
+Use `{key}` for state lookups and `{{ expression }}` for full JavaScript expressions.
 
-Text nodes interpolate expressions directly:
+- Most non-event bindings treat a bare value as a state lookup, not as arbitrary JavaScript. `:title="label"`, `.service="service"`, `x:bind="text"`, and `x:if="visible"` all resolve through `this.state`.
+- Wrap non-event bindings in braces when you need real JavaScript, such as `:class="({ active: this.state.active })"` or `x:else-if="{ this.state.items.length < 10 }"`.
+- Event bindings are different: a bare value is a component method name, not a state key. `@click="save"` resolves `save` on the component instance.
+- Event bindings also accept function expressions such as `@remove="(event) => { ... }"` and braced statement bodies such as `@click="{ this.state.count++ }"`.
+
+Text nodes interpolate state keys with single braces and full expressions with double braces:
 
 ```html
-<p>Hello {name}. Count: {count}</p>
+<p>Hello {name}. Next: {{ this.state.count + 1 }}</p>
 ```
 
 ### Attributes
@@ -181,6 +186,8 @@ Use `:attr` for dynamic attributes:
     Save
 </button>
 ```
+
+Object literals need braces so they are parsed as JavaScript instead of as a bare state lookup.
 
 You can also bind `class` and `style` from state keys such as `:class="classes"` or `:style="styles"`. `class` bindings support strings, arrays, and object maps. `style` bindings support strings and object maps.
 
@@ -222,16 +229,45 @@ Supported modifiers:
 
 ### Form inputs
 
-Use `x:bind` to keep inputs and state in sync:
+Use `x:bind` to keep form controls and state in sync. `x:bind` always takes a state key, not a general expression.
 
 ```html
 <input type="text" x:bind="text" />
 <input type="checkbox" x:bind="completed" />
 <input type="checkbox" value="red" x:bind="colors" />
+<input type="radio" name="size" value="m" x:bind="size" />
 <select multiple x:bind="tags"></select>
 ```
 
-`x:bind` supports text inputs, textareas, selects, multi-selects, checkbox booleans, checkbox arrays, and radio groups.
+Supported behaviors:
+
+- Text inputs, textareas, and single selects read and write string values
+- Checkbox bindings become booleans by default
+- Checkbox bindings become arrays when the current state value is an array
+- Radio groups read and write the selected radio's `value`
+- Multi-selects read and write arrays of selected option values
+
+Examples:
+
+```html
+<textarea x:bind="body"></textarea>
+<input type="checkbox" x:bind="enabled" />
+<input type="checkbox" value="red" x:bind="colors" />
+<input type="checkbox" value="blue" x:bind="colors" />
+<input type="radio" name="size" value="s" x:bind="size" />
+<input type="radio" name="size" value="m" x:bind="size" />
+<select x:bind="status">
+    <option value="draft">Draft</option>
+    <option value="published">Published</option>
+</select>
+```
+
+For checkbox arrays and multi-selects, initialize the state as an array:
+
+```js
+this.state.use('colors', []);
+this.state.use('tags', []);
+```
 
 ## Control Flow
 
@@ -239,7 +275,7 @@ FrostComponent supports conditional and loop blocks directly in templates.
 
 ### Conditionals
 
-Conditionals follow the same expression rules as other bindings: use a bare state key for simple lookups, or wrap JavaScript expressions in braces.
+Conditionals follow the same expression rules as other non-event bindings: use a bare state key for simple lookups, or wrap JavaScript expressions in braces.
 
 ```html
 <x-empty x:if="empty"></x-empty>
@@ -247,9 +283,16 @@ Conditionals follow the same expression rules as other bindings: use a bare stat
 <x-list-large x:else></x-list-large>
 ```
 
+Notes:
+
+- `x:else-if` and `x:else` belong to the immediately preceding conditional chain
+- Only the first matching branch is attached
+- Blocks can be nested inside other conditionals and loops
+- `x:if` and `x:each` cannot be used on the same element
+
 ### Loops
 
-`x:each` is used on component elements, not plain DOM elements.
+`x:each` is used on component elements, not plain DOM elements. FrostComponent clones the component, assigns each item into its state, and reuses initialized instances when identifiers stay stable.
 
 ```html
 <x-todo-item x:each="items" x:id="id"></x-todo-item>
@@ -257,8 +300,18 @@ Conditionals follow the same expression rules as other bindings: use a bare stat
 
 - `x:each` defaults to `items` when left empty
 - `x:id` defaults to `id`
+- The iterable must resolve to an array
+- The loop target must be a component element
 - Each item must include the identifier property
+- Identifiers must be unique within the array
 - Existing component instances are reused when identifiers stay stable
+
+Example:
+
+```html
+<x-todo-item x:each="items" x:id="id"></x-todo-item>
+<x-empty x:if="{ this.state.items.length === 0 }"></x-empty>
+```
 
 ## Slots
 
@@ -275,7 +328,7 @@ In light DOM components, FrostComponent replaces descendant `<slot>` elements wi
 
 ## HTML Template Components
 
-Autoloaded HTML components can include one render root plus optional top-level scripts and styles.
+Autoloaded HTML components can include one render root plus optional top-level scripts and styles. These scripts and styles must be direct children of the template, not nested inside the render root.
 
 ### Scripts
 
@@ -328,19 +381,21 @@ Options:
 - `options.baseUrl`: folder used to fetch component templates
 - `options.extension`: optional file extension appended to component URLs
 
+You can call `Component.bootstrap()` more than once. Omitted options keep the current autoload settings.
+
 ### Instance properties
 
-- `component.state`: the reactive FrostState store
-- `component.element`: the public DOM node for the component
-- `component.rootElement`: the rendered root element
-- `component.renderRoot`: the shadow root in shadow mode, otherwise the root element
-- `component.parentComponent`: nearest parent component, if any
-- `component.childComponents`: rendered child components
-- `component.connected`
-- `component.mounted`
-- `component.visible`
-- `component.initialized`
-- `component.loaded`
+- `component.state`: the component's reactive `StateStore`
+- `component.element`: the component's public DOM node and dispatch surface; the host element in shadow mode, otherwise the final rendered element exposed outside nested light-DOM wrappers
+- `component.rootElement`: the root element returned by `render()`
+- `component.renderRoot`: the container that holds rendered output; a `ShadowRoot` in shadow mode, otherwise `rootElement`
+- `component.parentComponent`: the nearest parent component instance, if any
+- `component.childComponents`: child component instances rendered inside this component
+- `component.connected`: whether the component has entered the connection lifecycle
+- `component.mounted`: whether the runtime currently considers the component mounted in the observed DOM
+- `component.visible`: whether the runtime currently considers the component visible
+- `component.initialized`: whether state parsing, binding, and `initialize()` have completed
+- `component.loaded`: whether child components and deferred loads have finished settling
 
 ### Instance methods
 
@@ -349,9 +404,41 @@ Options:
 - `component.dispatch(name, detail)`: dispatch a bubbling composed custom event
 - `component.deferLoad(promise)`: hold back `loaded` until a promise settles
 - `component.ready(callback)`: run a callback once the component is loaded
-- `component.slot(name = '')`: access a parsed slot definition in light DOM mode
+- `component.slot(name = '')`: access a parsed light-DOM slot object with `assign(node)` and `assigned()`, or `undefined` when no slot exists
 
-Example:
+### Effects
+
+`component.effect()` tracks the state reads inside its callback and re-runs when those values change.
+
+```js
+class XCounter extends Component {
+    static get template() {
+        return '<div>{count}</div>';
+    }
+
+    initialize() {
+        this.state.use('count', 0);
+
+        this.effect(() => {
+            console.log('count =', this.state.count);
+        });
+    }
+}
+```
+
+Effects are always deferred until the component is mounted. By default they also wait until the component is visible, and any skipped re-runs are flushed on the next `visible` event.
+
+Pass `{ skipInvisible: false }` when the effect should continue to run while the component is mounted but off-screen:
+
+```js
+this.effect(() => {
+    localStorage.setItem('draft', this.state.text ?? '');
+}, { skipInvisible: false });
+```
+
+### Deferred loading
+
+Use `component.deferLoad()` when a component should not be considered loaded until some async work finishes:
 
 ```js
 class XLoader extends Component {
@@ -360,10 +447,13 @@ class XLoader extends Component {
     }
 
     initialize() {
-        this.state.use('label', 'Loading...');
-        this.deferLoad(fetch('/api/data').then(() => {
-            this.state.label = 'Ready';
-        }));
+        this.deferLoad(
+            fetch('/api/data')
+                .then((response) => response.text())
+                .then((label) => {
+                    this.state.label = label;
+                }),
+        );
     }
 }
 ```
@@ -372,15 +462,19 @@ class XLoader extends Component {
 
 `x-suspense` is registered when you call `Component.bootstrap(...)`. It renders fallback content until child components finish loading, then unwraps the real content.
 
+Using the `XLoader` example above:
+
 ```html
 <x-suspense>
     <template slot="fallback">
         <div>Loading...</div>
     </template>
 
-    <x-todos></x-todos>
+    <x-loader></x-loader>
 </x-suspense>
 ```
+
+The fallback stays visible until the child components finish loading, including any promises passed to `deferLoad()`.
 
 ## Behavior Notes
 
@@ -390,7 +484,7 @@ class XLoader extends Component {
 - Event handlers must be a method name, a function expression, or a braced statement body.
 - `x:each` can only be used on component elements.
 - Slots must be descendants of the render root, not the root element itself.
-- `effect(callback, { skipInvisible })` skips invisible components by default.
+- `effect(callback, { skipInvisible })` always waits until mount, and skips invisible re-runs by default.
 
 ## Development
 

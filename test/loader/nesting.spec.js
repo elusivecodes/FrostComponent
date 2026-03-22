@@ -144,6 +144,65 @@ test.describe('Component autoload', () => {
         expect(events).toEqual(['parent:initialized', 'child:initialized']);
     });
 
+    test('runs connected scripts for slotted children after parent initialization', async ({ page }) => {
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-parent')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <script>
+                            this.addEventListener('initialized', () => {
+                                window._events.push('parent:initialized');
+                            });
+                        </script>
+
+                        <div>
+                            <slot name="body"></slot>
+                        </div>
+                    `,
+                });
+                return;
+            }
+            if (url.endsWith('/x-child')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <script connected>
+                            window._events.push('child:connected');
+                        </script>
+
+                        <script>
+                            this.addEventListener('initialized', () => {
+                                window._events.push('child:initialized');
+                            });
+                        </script>
+
+                        <div id="child"></div>
+                    `,
+                });
+                return;
+            }
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window._events = [];
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-parent><x-child slot="body"></x-child></x-parent>';
+        });
+
+        await page.waitForFunction(() => {
+            const child = document.querySelector('[x\\:component="x-child"]');
+            return child && child.component && child.component.loaded === true && window._events.length === 3;
+        });
+
+        const events = await page.evaluate(() => window._events || []);
+        expect(events).toEqual(['parent:initialized', 'child:connected', 'child:initialized']);
+    });
+
     test('autoloads loop components from x:each blocks', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
             const url = route.request().url();

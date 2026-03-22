@@ -1,8 +1,8 @@
 import { StateStore, useEffect } from '@fr0st/state';
 import { bind } from './bind.js';
 import { parseBlocks, processConditionals, processLoops } from './blocks.js';
-import { findChildren, findParent, isComponent } from './helpers.js';
 import { parseElements } from './element.js';
+import { findChildren, findParent, isComponent } from './helpers.js';
 import { parseSlots, processSlots } from './slots.js';
 import { parseState } from './state.js';
 import { getShadowMode, getShadowStyleBlocks, getShadowStylesheets, setShadowMode } from './vars.js';
@@ -11,18 +11,18 @@ import { getShadowMode, getShadowStyleBlocks, getShadowStylesheets, setShadowMod
  * Base custom element class for Frost components.
  */
 export default class Component extends HTMLElement {
-    #shadowRoot;
-    #rootElement;
-    #state = new StateStore();
-    #effects = new Set();
-    #pendingEffects = new Set();
     #connected = false;
-    #mounted = false;
-    #visible = false;
+    #effects = new Set();
     #initialized = false;
     #loaded = false;
     #loadedGates = new Set();
+    #mounted = false;
+    #pendingEffects = new Set();
+    #rootElement;
+    #shadowRoot;
     #slots;
+    #state = new StateStore();
+    #visible = false;
 
     /**
      * Gets the configured shadow mode for the component class.
@@ -123,22 +123,6 @@ export default class Component extends HTMLElement {
     }
 
     /**
-     * Gets the rendered root element.
-     * @returns {Element} The rendered root element.
-     */
-    get rootElement() {
-        return this.#rootElement;
-    }
-
-    /**
-     * Gets the node that contains the rendered output.
-     * @returns {ShadowRoot|Element} The shadow root in shadow mode, otherwise the root element.
-     */
-    get renderRoot() {
-        return this.#shadowRoot || this.#rootElement;
-    }
-
-    /**
      * Determines whether the component is initialized.
      * @returns {boolean} True when the component is initialized.
      */
@@ -171,6 +155,22 @@ export default class Component extends HTMLElement {
     }
 
     /**
+     * Gets the node that contains the rendered output.
+     * @returns {ShadowRoot|Element} The shadow root in shadow mode, otherwise the root element.
+     */
+    get renderRoot() {
+        return this.#shadowRoot || this.#rootElement;
+    }
+
+    /**
+     * Gets the rendered root element.
+     * @returns {Element} The rendered root element.
+     */
+    get rootElement() {
+        return this.#rootElement;
+    }
+
+    /**
      * Gets the state store.
      * @returns {StateStore} The component state store.
      */
@@ -195,6 +195,7 @@ export default class Component extends HTMLElement {
         }
 
         if (this.#initialized) {
+            this.onConnected();
             return;
         }
 
@@ -218,6 +219,7 @@ export default class Component extends HTMLElement {
             }
 
             this.#connected = true;
+            this.onConnected();
 
             const event = new Event('connected');
             this.dispatchEvent(event);
@@ -380,6 +382,14 @@ export default class Component extends HTMLElement {
      * Lifecycle hook that runs after the component has been rendered and bound.
      */
     initialize() {
+
+    }
+
+    /**
+     * Lifecycle hook that runs when the component actually connects.
+     * Runs on the initial connection and on later shadow-mode reconnections.
+     */
+    onConnected() {
 
     }
 

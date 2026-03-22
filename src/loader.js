@@ -113,18 +113,18 @@ function define(tagName, html) {
 
     return Promise.all(promises).then(() => {
         const ComponentClass = class extends Component {
-            connectedCallback() {
-                super.connectedCallback();
-
-                for (const script of connectedScripts) {
-                    Function.constructor(script.innerText).call(this);
-                }
-            }
-
             initialize() {
                 super.initialize();
 
                 for (const script of initializedScripts) {
+                    Function.constructor(script.innerText).call(this);
+                }
+            }
+
+            onConnected() {
+                super.onConnected();
+
+                for (const script of connectedScripts) {
                     Function.constructor(script.innerText).call(this);
                 }
             }
