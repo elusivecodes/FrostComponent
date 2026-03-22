@@ -1,5 +1,6 @@
 # FrostComponent
 
+[![CI](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml/badge.svg)](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40fr0st%2Fcomponent?style=flat-square)](https://www.npmjs.com/package/@fr0st/component)
 [![npm downloads](https://img.shields.io/npm/dm/%40fr0st%2Fcomponent?style=flat-square)](https://www.npmjs.com/package/@fr0st/component)
 [![minzipped size](https://img.shields.io/bundlejs/size/%40fr0st%2Fcomponent?format=minzip&style=flat-square)](https://bundlejs.com/?q=@fr0st/component)
