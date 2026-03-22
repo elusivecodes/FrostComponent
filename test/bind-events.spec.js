@@ -280,4 +280,107 @@ test.describe('Component event bindings', () => {
             itemId: 1,
         });
     });
+
+    test('binds custom events on shadow child hosts inside a shadow parent', async ({ page }) => {
+        await defineComponent(page, 'x-item', 'XItem', '<button id="remove" @click="{ this.dispatch(\'remove\', { id: this.state.id }) }">remove</button>');
+        await defineComponent(page, 'x-list', 'XList', '<ul><slot></slot></ul>');
+        await defineComponent(page, 'x-shell', 'XShell', '<section><x-list @remove="onRemove"><x-item state="({ id: 1 })"></x-item></x-list></section>');
+        await page.evaluate(() => {
+            window.XItem.shadowMode = 'open';
+            window.XList.shadowMode = 'open';
+            window.XShell.shadowMode = 'open';
+        });
+        await attachMethod(page, 'XShell', 'onRemove', function(event) {
+            this.state.calls = (this.state.calls || 0) + 1;
+            this.state.currentTargetTag = event.currentTarget.tagName.toLowerCase();
+            this.state.targetTag = event.target.tagName.toLowerCase();
+            this.state.detailId = event.detail.id;
+            this.state.itemId = event.target.state.id;
+        });
+
+        await page.setContent('<x-shell></x-shell>');
+
+        await page.waitForFunction(() => {
+            const shell = document.querySelector('x-shell');
+            const item = shell?.renderRoot?.querySelector('x-item');
+            return !!item?.renderRoot?.querySelector('#remove');
+        });
+
+        await page.evaluate(() => {
+            const shell = document.querySelector('x-shell');
+            const item = shell.renderRoot.querySelector('x-item');
+            item.renderRoot.querySelector('#remove').click();
+        });
+
+        const result = await page.evaluate(() => {
+            const shell = document.querySelector('x-shell');
+            return {
+                calls: shell.state.calls,
+                currentTargetTag: shell.state.currentTargetTag,
+                targetTag: shell.state.targetTag,
+                detailId: shell.state.detailId,
+                itemId: shell.state.itemId,
+            };
+        });
+
+        expect(result).toEqual({
+            calls: 1,
+            currentTargetTag: 'x-list',
+            targetTag: 'x-item',
+            detailId: 1,
+            itemId: 1,
+        });
+    });
+
+    test('binds custom events across multiple nested shadow component hosts', async ({ page }) => {
+        await defineComponent(page, 'x-item', 'XItem', '<button id="remove" @click="{ this.dispatch(\'remove\', { id: this.state.id }) }">remove</button>');
+        await defineComponent(page, 'x-list', 'XList', '<ul><slot></slot></ul>');
+        await defineComponent(page, 'x-shell', 'XShell', '<section><x-list><x-item state="({ id: 1 })"></x-item></x-list></section>');
+        await defineComponent(page, 'x-app', 'XApp', '<main><x-shell @remove="onRemove"></x-shell></main>');
+        await page.evaluate(() => {
+            window.XItem.shadowMode = 'open';
+            window.XList.shadowMode = 'open';
+            window.XShell.shadowMode = 'open';
+            window.XApp.shadowMode = 'open';
+        });
+        await attachMethod(page, 'XApp', 'onRemove', function(event) {
+            this.state.calls = (this.state.calls || 0) + 1;
+            this.state.currentTargetTag = event.currentTarget.tagName.toLowerCase();
+            this.state.targetTag = event.target.tagName.toLowerCase();
+            this.state.detailId = event.detail.id;
+        });
+
+        await page.setContent('<x-app></x-app>');
+
+        await page.waitForFunction(() => {
+            const app = document.querySelector('x-app');
+            const shell = app?.renderRoot?.querySelector('x-shell');
+            const item = shell?.renderRoot?.querySelector('x-item');
+            return !!item?.renderRoot?.querySelector('#remove');
+        });
+
+        await page.evaluate(() => {
+            const app = document.querySelector('x-app');
+            const shell = app.renderRoot.querySelector('x-shell');
+            const item = shell.renderRoot.querySelector('x-item');
+            item.renderRoot.querySelector('#remove').click();
+        });
+
+        const result = await page.evaluate(() => {
+            const app = document.querySelector('x-app');
+            return {
+                calls: app.state.calls,
+                currentTargetTag: app.state.currentTargetTag,
+                targetTag: app.state.targetTag,
+                detailId: app.state.detailId,
+            };
+        });
+
+        expect(result).toEqual({
+            calls: 1,
+            currentTargetTag: 'x-shell',
+            targetTag: 'x-shell',
+            detailId: 1,
+        });
+    });
 });

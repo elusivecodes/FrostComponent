@@ -6,7 +6,7 @@
 [![minzipped size](https://img.shields.io/bundlejs/size/%40fr0st%2Fcomponent?format=minzip&style=flat-square)](https://bundlejs.com/?q=@fr0st/component)
 [![license](https://img.shields.io/github/license/elusivecodes/FrostComponent?style=flat-square)](./LICENSE)
 
-Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading. FrostComponent is powered by Custom Elements and FrostState, with no compilation step.
+Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading. Provides reactive custom elements with dynamic component loading and no compilation step.
 
 ## Highlights
 
