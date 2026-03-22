@@ -1,0 +1,19 @@
+<!-- shadow -->
+
+<script>
+    this.state.use('count', 0);
+</script>
+
+<style>
+    button {
+        font-size: 1.5em;
+        padding: 0.5em 1em;
+        border: none;
+        background-color: #007BFF;
+        color: white;
+        border-radius: 5px;
+        cursor: pointer;
+    }
+</style>
+
+<button @click="{ this.state.count++ }">Count: {count}</button>

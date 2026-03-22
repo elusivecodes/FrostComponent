@@ -1,0 +1,267 @@
+import { test, expect } from '@playwright/test';
+import { initializePage } from '../support/utils.js';
+
+test.describe('Component autoload', () => {
+    test.beforeEach(async ({ page }) => {
+        await initializePage(page);
+    });
+
+    test('autoloads a component via baseUrl', async ({ page }) => {
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-auto')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <div>
+                            <span id="msg">loaded</span>
+                        </div>
+                    `,
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-auto></x-auto>';
+        });
+
+        const root = page.locator('[x\\:component="x-auto"]');
+        await expect(root).toHaveCount(1);
+        await expect(root.locator('#msg')).toHaveText('loaded');
+    });
+
+    test('does not autoload without baseUrl', async ({ page }) => {
+        await page.evaluate(() => {
+            window.Component.bootstrap();
+            document.body.innerHTML = '<x-auto></x-auto>';
+        });
+
+        await expect(page.locator('x-auto')).toHaveCount(1);
+        await expect(page.locator('[x\\:component="x-auto"]')).toHaveCount(0);
+    });
+
+    test('loads shared script sources only once', async ({ page }) => {
+        let sharedScriptRequests = 0;
+
+        await page.route('**/shared.js', async (route) => {
+            sharedScriptRequests += 1;
+            await route.fulfill({
+                status: 200,
+                contentType: 'text/javascript',
+                body: `
+                    window._sharedLoaded++;
+                `,
+            });
+        });
+
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-a')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <script src="http://test.local/shared.js"></script>
+                        <div></div>
+                    `,
+                });
+                return;
+            }
+            if (url.endsWith('/x-b')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <script src="http://test.local/shared.js"></script>
+                        <div></div>
+                    `,
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window._sharedLoaded = 0;
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-a></x-a><x-b></x-b>';
+        });
+
+        await expect(page.locator('[x\\:component="x-a"]')).toHaveCount(1);
+        await expect(page.locator('[x\\:component="x-b"]')).toHaveCount(1);
+
+        await page.waitForFunction(() => window._sharedLoaded === 1);
+        expect(sharedScriptRequests).toBe(1);
+    });
+
+    test('loads shared stylesheets only once', async ({ page }) => {
+        let sharedStylesheetRequests = 0;
+
+        await page.route('**/shared.css', async (route) => {
+            sharedStylesheetRequests += 1;
+            await route.fulfill({
+                status: 200,
+                contentType: 'text/css',
+                body: `
+                    .shared { color: red; }
+                `,
+            });
+        });
+
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-a')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <link rel="stylesheet" href="http://test.local/shared.css">
+                        <div></div>
+                    `,
+                });
+                return;
+            }
+            if (url.endsWith('/x-b')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <link rel="stylesheet" href="http://test.local/shared.css">
+                        <div></div>
+                    `,
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-a></x-a><x-b></x-b>';
+        });
+
+        await expect(page.locator('[x\\:component="x-a"]')).toHaveCount(1);
+        await expect(page.locator('[x\\:component="x-b"]')).toHaveCount(1);
+
+        await page.waitForFunction(() => {
+            return document.head.querySelectorAll('link[rel="stylesheet"][href="http://test.local/shared.css"]').length === 1;
+        });
+
+        expect(sharedStylesheetRequests).toBe(1);
+    });
+
+    test('runs connected scripts on connect and init scripts on initialize', async ({ page }) => {
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-scripts')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <script connected>
+                            window._events.push('connected');
+                        </script>
+                        <script>
+                            window._events.push('initialized');
+                        </script>
+                        <div></div>
+                    `,
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window._events = [];
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-scripts></x-scripts>';
+        });
+
+        await page.waitForFunction(() => {
+            const root = document.querySelector('[x\\:component="x-scripts"]');
+            return root && root.component && root.component.loaded === true;
+        });
+
+        const events = await page.evaluate(() => window._events || []);
+        expect(events).toEqual(['connected', 'initialized']);
+    });
+
+    test('runs connected scripts before initialized scripts and only once', async ({ page }) => {
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-order')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <script connected>
+                            window._events.push('connected');
+                        </script>
+                        <script>
+                            window._events.push('initialized');
+                        </script>
+                        <div></div>
+                    `,
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window._events = [];
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-order></x-order>';
+        });
+
+        await page.waitForFunction(() => {
+            const root = document.querySelector('[x\\:component="x-order"]');
+            return root && root.component && root.component.loaded === true;
+        });
+
+        const events = await page.evaluate(() => window._events || []);
+        expect(events).toEqual(['connected', 'initialized']);
+    });
+
+
+    test('does not define the same component twice when requested concurrently', async ({ page }) => {
+        let defineCalls = 0;
+
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-dupe')) {
+                defineCalls++;
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `<div id="dupe">ok</div>`,
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-dupe></x-dupe><x-dupe></x-dupe>';
+        });
+
+        await page.waitForFunction(() => {
+            return document.querySelectorAll('[x\\:component="x-dupe"]').length === 2;
+        });
+
+        expect(defineCalls).toBe(1);
+        await expect(page.locator('[x\\:component="x-dupe"]')).toHaveCount(2);
+    });
+});

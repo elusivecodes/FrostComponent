@@ -1,0 +1,9 @@
+<!-- shadow -->
+
+<li>
+    <label>
+        <input type="checkbox" x:bind="completed" @change="{ this.dispatch('toggle') }" />
+        <span :style="{ this.state.completed ? 'text-decoration: line-through;' : '' }">{text}</span>
+    </label>
+    <button @click.prevent="{ this.dispatch('remove') }">x</button>
+</li>

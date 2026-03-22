@@ -1,0 +1,67 @@
+{
+    "name": "@fr0st/component",
+    "version": "1.0.0",
+    "description": "Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading.",
+    "keywords": [
+        "bindings",
+        "components",
+        "custom-elements",
+        "frost",
+        "html",
+        "reactive",
+        "shadow-dom",
+        "slots",
+        "templating",
+        "web-components"
+    ],
+    "homepage": "https://github.com/elusivecodes/FrostComponent",
+    "bugs": {
+        "url": "https://github.com/elusivecodes/FrostComponent/issues",
+        "email": "elusivecodes@gmail.com"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/elusivecodes/FrostComponent.git"
+    },
+    "license": "MIT",
+    "author": "Elusive <elusivecodes@gmail.com>",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": "./src/index.js"
+    },
+    "main": "src/index.js",
+    "jsdelivr": "dist/frost-component.min.js",
+    "unpkg": "dist/frost-component.min.js",
+    "files": [
+        "dist",
+        "LICENSE",
+        "README.md",
+        "src"
+    ],
+    "scripts": {
+        "build": "npm run js-compile && npm run js-minify",
+        "js-compile": "rollup --config",
+        "js-lint": "eslint",
+        "js-minify": "terser --compress passes=2 --mangle --source-map \"content=dist/frost-component.js.map\" --output dist/frost-component.min.js dist/frost-component.js",
+        "test": "playwright test"
+    },
+    "dependencies": {
+        "@fr0st/state": "^1.0"
+    },
+    "devDependencies": {
+        "@fr0st/eslint-config": "^2.0.6",
+        "@playwright/test": "^1.58.2",
+        "@rollup/plugin-node-resolve": "^16.0.3",
+        "eslint": "^10.1.0",
+        "playwright": "^1.58.2",
+        "rollup": "^4.59.1",
+        "terser": "^5.46.1"
+    },
+    "engines": {
+        "node": "^20.19.0 || ^22.13.0 || >=24"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}

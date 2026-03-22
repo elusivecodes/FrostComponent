@@ -1,0 +1,262 @@
+import { bind } from './bind.js';
+import { evaluator } from './evaluator.js';
+import { isComponent, skipSubtree } from './helpers.js';
+
+/**
+ * @typedef {object} ConditionalCase
+ * @property {string} condition The condition expression for the case.
+ * @property {Element} element The template element for the case.
+ * @property {Comment} start The start marker for the case.
+ * @property {Comment} end The end marker for the case.
+ */
+
+/**
+ * @typedef {object} LoopBlock
+ * @property {string} iterable The expression that resolves to the loop items.
+ * @property {string} identifier The property name used as the item key.
+ * @property {Component} element The component template cloned for each item.
+ * @property {Comment} start The start marker for the loop block.
+ * @property {Comment} end The end marker for the loop block.
+ */
+
+/**
+ * Parses top-level conditional and loop blocks from an element subtree.
+ * @param {Element} element The root element to parse.
+ * @param {ConditionalCase[][]} [conditionals=[]] The collected conditional blocks.
+ * @param {LoopBlock[]} [loops=[]] The collected loop blocks.
+ * @returns {[ConditionalCase[][], LoopBlock[]]} The collected conditionals and loops.
+ */
+export function parseBlocks(element, conditionals = [], loops = []) {
+    const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_ELEMENT,
+        {
+            acceptNode(node) {
+                return (node.hasAttribute('x:if') || node.hasAttribute('x:each')) ?
+                    NodeFilter.FILTER_ACCEPT :
+                    NodeFilter.FILTER_SKIP;
+            },
+        },
+    );
+
+    let node = walker.nextNode();
+    while (node) {
+        const hasConditional = node.hasAttribute('x:if');
+        const hasLoop = node.hasAttribute('x:each');
+
+        if (hasConditional && hasLoop) {
+            throw new Error('Conditional elements cannot be looped');
+        }
+
+        if (hasConditional) {
+            conditionals.push(parseConditional(node));
+        } else if (hasLoop) {
+            loops.push(parseLoop(node));
+        }
+
+        node = skipSubtree(walker);
+    }
+
+    return [conditionals, loops];
+};
+
+/**
+ * Parses a conditional element.
+ * @param {Element} element The element to parse.
+ * @returns {ConditionalCase[]} The conditional cases for the element.
+ */
+function parseConditional(element) {
+    const condition = element.getAttribute('x:if');
+    element.removeAttribute('x:if');
+
+    const start = document.createComment(`if[${condition}]`);
+    const end = document.createComment(`/if[${condition}]`);
+
+    element.parentNode.insertBefore(start, element);
+    element.parentNode.insertBefore(end, element);
+
+    const cases = [];
+    cases.push({ condition, element, start, end });
+
+    let next = element;
+    while (next = next.nextElementSibling) {
+        if (next.hasAttribute('x:else-if')) {
+            const condition = next.getAttribute('x:else-if');
+            next.removeAttribute('x:else-if');
+
+            const start = document.createComment(`else-if[${condition}]`);
+            const end = document.createComment(`/else-if[${condition}]`);
+
+            next.parentNode.insertBefore(start, next);
+            next.parentNode.insertBefore(end, next);
+
+            cases.push({ condition, element: next, start, end });
+            continue;
+        }
+
+        if (next.hasAttribute('x:else')) {
+            next.removeAttribute('x:else');
+
+            const start = document.createComment(`else`);
+            const end = document.createComment(`/else`);
+
+            next.parentNode.insertBefore(start, next);
+            next.parentNode.insertBefore(end, next);
+
+            cases.push({ condition: '{true}', element: next, start, end });
+        }
+
+        break;
+    }
+
+    for (const { element } of cases) {
+        element.remove();
+    }
+
+    return cases;
+};
+
+/**
+ * Parses a loop element.
+ * @param {Element} element The element to parse as a loop block.
+ * @returns {LoopBlock} The parsed loop metadata.
+ */
+function parseLoop(element) {
+    if (!isComponent(element.tagName)) {
+        throw new Error('Loop elements must be components');
+    }
+
+    const iterable = element.getAttribute('x:each') || 'items';
+    const identifier = element.getAttribute('x:id') || 'id';
+    element.removeAttribute('x:each');
+    element.removeAttribute('x:id');
+
+    const start = document.createComment(`each[${iterable}]`);
+    const end = document.createComment(`/each[${iterable}]`);
+
+    element.parentNode.insertBefore(start, element);
+    element.parentNode.insertBefore(end, element);
+    element.remove();
+
+    return { iterable, identifier, element, start, end };
+};
+
+/**
+ * Processes conditional elements.
+ * @param {Component} component The component that owns the conditionals.
+ * @param {ConditionalCase[][]} conditionals The conditional cases to evaluate.
+ */
+export function processConditionals(component, conditionals) {
+    for (const cases of conditionals) {
+        const conditions = [];
+        for (const { condition, element, end } of cases) {
+            const data = {
+                attached: false,
+                callback: evaluator(component, condition),
+                element,
+                end,
+            };
+
+            conditions.push(data);
+
+            if (isComponent(element.tagName)) {
+                element.addEventListener('initialized', () => {
+                    data.element = element.element;
+                }, { once: true });
+            }
+        }
+
+        component.effect(() => {
+            let matched = false;
+            for (const condition of conditions) {
+                const result = !matched && condition.callback();
+
+                if (result) {
+                    if (!condition.attached) {
+                        const [nestedConditionals, nestedLoops] = parseBlocks(condition.element);
+
+                        bind(component, condition.element);
+                        processConditionals(component, nestedConditionals);
+                        processLoops(component, nestedLoops);
+
+                        condition.attached = true;
+                    }
+
+                    condition.end.parentNode.insertBefore(condition.element, condition.end);
+
+                    matched = true;
+                } else {
+                    condition.element.remove();
+                }
+            }
+        });
+    }
+};
+
+/**
+ * Processes loop elements.
+ * @param {Component} component The component that owns the loops.
+ * @param {LoopBlock[]} loops The loop descriptors to render.
+ */
+export function processLoops(component, loops) {
+    for (const { iterable, identifier, element, end } of loops) {
+        let loopComponents = {};
+        const callback = evaluator(component, iterable, []);
+        component.effect(() => {
+            const items = callback();
+
+            if (!Array.isArray(items)) {
+                throw new Error(`Iterable "${iterable}" must be an array`);
+            }
+
+            const previousComponents = { ...loopComponents };
+
+            loopComponents = {};
+
+            for (const item of items) {
+                if (!(identifier in item)) {
+                    throw new Error(`Item in "${iterable}" must have a "${identifier}" property`);
+                }
+
+                const id = item[identifier];
+
+                if (id in loopComponents) {
+                    throw new Error(`Duplicate identifier "${id}" in "${iterable}"`);
+                }
+
+                let loopComponent;
+                if (id in previousComponents && previousComponents[id].initialized) {
+                    loopComponent = previousComponents[id];
+                    loopComponent.state.set(item);
+
+                    end.parentNode.insertBefore(loopComponent.element, end);
+                } else {
+                    loopComponent = element.cloneNode(true);
+                    loopComponent.setAttribute('state', JSON.stringify(item));
+
+                    const [nestedConditionals, nestedLoops] = parseBlocks(loopComponent);
+
+                    bind(component, loopComponent);
+                    processConditionals(component, nestedConditionals);
+                    processLoops(component, nestedLoops);
+
+                    end.parentNode.insertBefore(loopComponent, end);
+                }
+
+                loopComponents[id] = loopComponent;
+            }
+
+            for (const [id, loopComponent] of Object.entries(previousComponents)) {
+                if (id in loopComponents) {
+                    continue;
+                }
+
+                if (loopComponent.initialized) {
+                    loopComponent.element.remove();
+                } else {
+                    loopComponent.remove();
+                }
+            }
+        });
+    }
+};

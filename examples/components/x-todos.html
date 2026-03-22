@@ -1,0 +1,46 @@
+<!-- shadow -->
+
+<script>
+    const loadItems = () => {
+        const items = localStorage.getItem('todo-items');
+        return items ? JSON.parse(items) : [];
+    };
+
+    const saveItems = (items) => {
+        localStorage.setItem('todo-items', JSON.stringify(items));
+    };
+
+    const items = loadItems();
+
+    this.state.use('items', items);
+
+    this.effect(() => {
+        saveItems(this.state.items);
+    });
+</script>
+
+<div>
+    <x-todo-list @remove="(e) => {
+        this.state.items = this.state.items.filter(item => item.id !== e.target.state.id);
+    }" @toggle="(e) => {
+        this.state.items = this.state.items.map(item => {
+            if (item.id === e.target.state.id) {
+                return { ...item, completed: !item.completed };
+            }
+
+            return item;
+        });
+    }">
+        <x-todo-item x:each="items"></x-todo-item>
+    </x-todo-list>
+    <x-todo-form @save="(e) => {
+        const form = e.currentTarget;
+
+        if (form.state.text.trim() === '') {
+            return;
+        }
+
+        this.state.items = [...this.state.items, { id: Date.now(), text: form.state.text, completed: false }];
+        form.state.text = '';
+    }"></x-todo-form>
+</div>
