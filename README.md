@@ -427,12 +427,12 @@ class XCounter extends Component {
 
 Effects are always deferred until the component is mounted. By default they also wait until the component is visible, and any skipped re-runs are flushed on the next `visible` event.
 
-Pass `{ skipInvisible: false }` when the effect should continue to run while the component is mounted but off-screen:
+Pass `{ waitForVisible: false }` when the effect should continue to run while the component is mounted but off-screen:
 
 ```js
 this.effect(() => {
     localStorage.setItem('draft', this.state.text ?? '');
-}, { skipInvisible: false });
+}, { waitForVisible: false });
 ```
 
 ### Deferred loading
@@ -483,7 +483,7 @@ The fallback stays visible until the child components finish loading, including 
 - Event handlers must be a method name, a function expression, or a braced statement body.
 - `x:each` can only be used on component elements.
 - Slots must be descendants of the render root, not the root element itself.
-- `effect(callback, { skipInvisible })` always waits until mount, and skips invisible re-runs by default.
+- `effect(callback, { waitForVisible })` always waits until mount, and defers invisible re-runs by default.
 
 ## Development
 

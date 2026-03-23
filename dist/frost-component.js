@@ -1847,12 +1847,12 @@
          * Registers an effect callback.
          * @param {() => void} callback The effect callback to register.
          * @param {object} [options] The effect options.
-         * @param {boolean} [options.skipInvisible=true] Whether to skip effects when invisible.
+         * @param {boolean} [options.waitForVisible=true] Whether to defer effects until the component is visible.
          */
-        effect(callback, { skipInvisible = true } = {}) {
+        effect(callback, { waitForVisible = true } = {}) {
             const ref = {};
             const effect = useEffect(() => {
-                if (!this.#mounted || (skipInvisible && !this.#visible)) {
+                if (!this.#mounted || (waitForVisible && !this.#visible)) {
                     this.#pendingEffects.add(ref);
                     return;
                 }

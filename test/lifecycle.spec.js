@@ -58,7 +58,7 @@ test.describe('Component lifecycle', () => {
         expect(runs).toBe(2);
     });
 
-    test('runs effects when skipInvisible is false', async ({ page }) => {
+    test('runs effects when waitForVisible is false', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div></div>');
         await page.setContent('<x-component></x-component>');
 
@@ -68,7 +68,7 @@ test.describe('Component lifecycle', () => {
             component.dispatchEvent(new Event('invisible'));
             component.effect(() => {
                 component._ran = true;
-            }, { skipInvisible: false });
+            }, { waitForVisible: false });
         });
 
         const ran = await page.evaluate(() => {
