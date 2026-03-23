@@ -231,14 +231,6 @@ Supported modifiers:
 
 Use `x:bind` to keep form controls and state in sync. `x:bind` always takes a state key, not a general expression.
 
-```html
-<input type="text" x:bind="text" />
-<input type="checkbox" x:bind="completed" />
-<input type="checkbox" value="red" x:bind="colors" />
-<input type="radio" name="size" value="m" x:bind="size" />
-<select multiple x:bind="tags"></select>
-```
-
 Supported behaviors:
 
 - Text inputs, textareas, and single selects read and write string values
@@ -247,18 +239,25 @@ Supported behaviors:
 - Radio groups read and write the selected radio's `value`
 - Multi-selects read and write arrays of selected option values
 
-Examples:
-
 ```html
+<input type="text" x:bind="title" />
 <textarea x:bind="body"></textarea>
 <input type="checkbox" x:bind="enabled" />
+
 <input type="checkbox" value="red" x:bind="colors" />
 <input type="checkbox" value="blue" x:bind="colors" />
+
 <input type="radio" name="size" value="s" x:bind="size" />
 <input type="radio" name="size" value="m" x:bind="size" />
+
 <select x:bind="status">
     <option value="draft">Draft</option>
     <option value="published">Published</option>
+</select>
+
+<select multiple x:bind="tags">
+    <option value="news">News</option>
+    <option value="docs">Docs</option>
 </select>
 ```
 
@@ -480,7 +479,7 @@ The fallback stays visible until the child components finish loading, including 
 
 - Light DOM components replace their custom-element host with the rendered root. Shadow components keep the host element.
 - `dispatch()` emits from the component's public DOM node. In light DOM that is the rendered root element. In shadow mode that is the host element.
-- `.prop` bindings support custom expandos only.
+- `.prop` bindings support custom properties only.
 - Event handlers must be a method name, a function expression, or a braced statement body.
 - `x:each` can only be used on component elements.
 - Slots must be descendants of the render root, not the root element itself.

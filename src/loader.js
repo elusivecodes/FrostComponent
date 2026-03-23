@@ -45,7 +45,7 @@ function define(tagName, html) {
 
     const container = document.createElement('div');
     container.innerHTML = html;
-    const shadowMode = parseShadowMode(container);
+    const componentShadowMode = parseShadowMode(container);
 
     const elements = container.querySelectorAll(':scope > :not(script, link[rel="stylesheet"], style)');
 
@@ -91,7 +91,7 @@ function define(tagName, html) {
         });
 
     // load stylesheets/style blocks
-    if (shadowMode) {
+    if (componentShadowMode) {
         // handled per instance inside the shadow root
     } else {
         for (const stylesheet of stylesheets) {
@@ -113,6 +113,8 @@ function define(tagName, html) {
 
     return Promise.all(promises).then(() => {
         const ComponentClass = class extends Component {
+            static shadowMode = componentShadowMode;
+
             initialize() {
                 super.initialize();
 
@@ -134,7 +136,6 @@ function define(tagName, html) {
             }
         };
 
-        ComponentClass.shadowMode = shadowMode;
         setShadowAssets(ComponentClass, {
             stylesheets,
             styleBlocks,

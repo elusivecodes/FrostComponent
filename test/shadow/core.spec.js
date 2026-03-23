@@ -94,6 +94,46 @@ test.describe('Shadow mode', () => {
         expect(result.lightChildren).toBe(0);
     });
 
+    test('supports JS-defined static shadowMode class fields', async ({ page }) => {
+        await page.addScriptTag({
+            content: `
+                class XShadowField extends window.Component {
+                    static shadowMode = 'open';
+
+                    static get template() {
+                        return '<div id="root">field</div>';
+                    }
+                }
+
+                window.XShadowField = XShadowField;
+                customElements.define('x-shadow-field', XShadowField);
+            `,
+        });
+
+        await page.setContent('<x-shadow-field></x-shadow-field>');
+
+        await page.waitForFunction(() => {
+            const host = document.querySelector('x-shadow-field');
+            return host?.loaded === true;
+        });
+
+        const result = await page.evaluate(() => {
+            const host = document.querySelector('x-shadow-field');
+
+            return {
+                shadowMode: host.constructor.shadowMode,
+                hasShadow: !!host.shadowRoot,
+                hasRoot: !!host.renderRoot.querySelector('#root'),
+            };
+        });
+
+        expect(result).toEqual({
+            shadowMode: 'open',
+            hasShadow: true,
+            hasRoot: true,
+        });
+    });
+
     test('ignores nested shadow comments', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
             const url = route.request().url();

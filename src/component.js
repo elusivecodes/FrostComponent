@@ -5,12 +5,14 @@ import { parseElements } from './element.js';
 import { findChildren, findParent, isComponent } from './helpers.js';
 import { parseSlots, processSlots } from './slots.js';
 import { parseState } from './state.js';
-import { getShadowMode, getShadowStyleBlocks, getShadowStylesheets, setShadowMode } from './vars.js';
+import { getShadowStyleBlocks, getShadowStylesheets } from './vars.js';
 
 /**
  * Base custom element class for Frost components.
  */
 export default class Component extends HTMLElement {
+    static shadowMode = null;
+
     #connected = false;
     #effects = new Set();
     #initialized = false;
@@ -23,22 +25,6 @@ export default class Component extends HTMLElement {
     #slots;
     #state = new StateStore();
     #visible = false;
-
-    /**
-     * Gets the configured shadow mode for the component class.
-     * @returns {'open'|'closed'|null} The configured shadow mode.
-     */
-    static get shadowMode() {
-        return getShadowMode(this);
-    }
-
-    /**
-     * Sets the configured shadow mode for the component class.
-     * @param {'open'|'closed'|null} value The shadow mode to apply.
-     */
-    static set shadowMode(value) {
-        setShadowMode(this, value);
-    }
 
     /**
      * Gets the template.

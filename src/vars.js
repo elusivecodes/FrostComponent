@@ -2,27 +2,8 @@ export const loaded = {};
 export const loadedScripts = {};
 export const loadedStylesheets = {};
 
-const shadowModes = new WeakMap();
 const shadowStyleBlocks = new WeakMap();
 const shadowStylesheets = new WeakMap();
-
-/**
- * Gets the configured shadow mode for a component class.
- * @param {typeof import('./component.js').default} ComponentClass The component constructor.
- * @returns {'open'|'closed'|null} The configured shadow mode.
- */
-export function getShadowMode(ComponentClass) {
-    return shadowModes.get(ComponentClass) ?? null;
-}
-
-/**
- * Sets the configured shadow mode for a component class.
- * @param {typeof import('./component.js').default} ComponentClass The component constructor.
- * @param {'open'|'closed'|null} shadowMode The shadow mode to store.
- */
-export function setShadowMode(ComponentClass, shadowMode) {
-    shadowModes.set(ComponentClass, shadowMode);
-}
 
 /**
  * Gets the cached shadow style blocks for a component class.

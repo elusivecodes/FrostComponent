@@ -4,6 +4,16 @@
     (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Component = factory());
 })(this, (function () { 'use strict';
 
+    /**
+     * Checks whether a value is a plain object constructed by `Object`.
+     * Values with a null prototype and class instances return `false`.
+     * @param {*} value The value to test.
+     * @returns {boolean} Whether the value is a plain object.
+     */
+    function isPlainObject$1(value) {
+        return value?.constructor === Object;
+    }
+
     const activeEffects = [];
     const effectNextStates = new WeakMap();
 
@@ -194,16 +204,6 @@
         return state;
     }
 
-    /**
-     * Checks whether a value is a plain object constructed by `Object`.
-     * Values with a null prototype and class instances return `false`.
-     * @param {*} value The value to test.
-     * @returns {boolean} Whether the value is a plain object.
-     */
-    function isPlainObject$1(value) {
-        return value?.constructor === Object;
-    }
-
     /** @import { StateAccessor } from './state.js' */
 
 
@@ -218,42 +218,6 @@
     class StateStore extends Function {
         #state = new Map();
         #visibleKeys = new Set();
-
-        static #isReservedStateKey(key) {
-            return typeof key === 'string' && (
-                Object.prototype.hasOwnProperty.call(StateStore.prototype, key)
-            );
-        }
-
-        /**
-         * Wraps a plain object in a `StateStore`.
-         * Non-plain values are returned unchanged.
-         * @template T
-         * @param {T} value The value to wrap.
-         * @param {{ deep?: boolean }} [options] The wrap options.
-         * @param {boolean} [options.deep=false] Whether to recursively wrap nested plain objects.
-         * @returns {StateStore|T} The wrapped store, or the original value.
-         * @throws {TypeError} If the wrapped object contains a reserved `StateStore` key.
-         */
-        static wrap(value, options = { deep: false }) {
-            if (value instanceof StateStore) {
-                return value;
-            }
-
-            if (!isPlainObject$1(value)) {
-                return value;
-            }
-
-            const store = new StateStore();
-
-            for (const [key, val] of Object.entries(value)) {
-                store[key] = options.deep ?
-                    StateStore.wrap(val, options) :
-                    val;
-            }
-
-            return store;
-        }
 
         /**
          * Merges plain-object data into a `StateStore`.
@@ -298,6 +262,42 @@
             }
 
             return store;
+        }
+
+        /**
+         * Wraps a plain object in a `StateStore`.
+         * Non-plain values are returned unchanged.
+         * @template T
+         * @param {T} value The value to wrap.
+         * @param {{ deep?: boolean }} [options] The wrap options.
+         * @param {boolean} [options.deep=false] Whether to recursively wrap nested plain objects.
+         * @returns {StateStore|T} The wrapped store, or the original value.
+         * @throws {TypeError} If the wrapped object contains a reserved `StateStore` key.
+         */
+        static wrap(value, options = { deep: false }) {
+            if (value instanceof StateStore) {
+                return value;
+            }
+
+            if (!isPlainObject$1(value)) {
+                return value;
+            }
+
+            const store = new StateStore();
+
+            for (const [key, val] of Object.entries(value)) {
+                store[key] = options.deep ?
+                    StateStore.wrap(val, options) :
+                    val;
+            }
+
+            return store;
+        }
+
+        static #isReservedStateKey(key) {
+            return typeof key === 'string' && (
+                Object.prototype.hasOwnProperty.call(StateStore.prototype, key)
+            );
         }
 
         /**
@@ -444,22 +444,6 @@
             return state;
         }
 
-        #readKey(key) {
-            if (this.#state.has(key)) {
-                return this.#state.get(key).value;
-            }
-
-            if (!isTrackingEffects()) {
-                return undefined;
-            }
-
-            const state = useState(undefined);
-
-            this.#state.set(key, state);
-
-            return state.value;
-        }
-
         #assignKey(key, value) {
             if (StateStore.#isReservedStateKey(key)) {
                 throw new TypeError(`"${key}" is a reserved StateStore key`);
@@ -475,6 +459,22 @@
 
             this.#state.set(key, state);
             this.#visibleKeys.add(key);
+        }
+
+        #readKey(key) {
+            if (this.#state.has(key)) {
+                return this.#state.get(key).value;
+            }
+
+            if (!isTrackingEffects()) {
+                return undefined;
+            }
+
+            const state = useState(undefined);
+
+            this.#state.set(key, state);
+
+            return state.value;
         }
     }
 
@@ -1461,27 +1461,8 @@
     const loadedScripts = {};
     const loadedStylesheets = {};
 
-    const shadowModes = new WeakMap();
     const shadowStyleBlocks = new WeakMap();
     const shadowStylesheets = new WeakMap();
-
-    /**
-     * Gets the configured shadow mode for a component class.
-     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
-     * @returns {'open'|'closed'|null} The configured shadow mode.
-     */
-    function getShadowMode(ComponentClass) {
-        return shadowModes.get(ComponentClass) ?? null;
-    }
-
-    /**
-     * Sets the configured shadow mode for a component class.
-     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
-     * @param {'open'|'closed'|null} shadowMode The shadow mode to store.
-     */
-    function setShadowMode(ComponentClass, shadowMode) {
-        shadowModes.set(ComponentClass, shadowMode);
-    }
 
     /**
      * Gets the cached shadow style blocks for a component class.
@@ -1531,34 +1512,20 @@
      * Base custom element class for Frost components.
      */
     class Component extends HTMLElement {
-        #shadowRoot;
-        #rootElement;
-        #state = new StateStore();
-        #effects = new Set();
-        #pendingEffects = new Set();
+        static shadowMode = null;
+
         #connected = false;
-        #mounted = false;
-        #visible = false;
+        #effects = new Set();
         #initialized = false;
         #loaded = false;
         #loadedGates = new Set();
+        #mounted = false;
+        #pendingEffects = new Set();
+        #rootElement;
+        #shadowRoot;
         #slots;
-
-        /**
-         * Gets the configured shadow mode for the component class.
-         * @returns {'open'|'closed'|null} The configured shadow mode.
-         */
-        static get shadowMode() {
-            return getShadowMode(this);
-        }
-
-        /**
-         * Sets the configured shadow mode for the component class.
-         * @param {'open'|'closed'|null} value The shadow mode to apply.
-         */
-        static set shadowMode(value) {
-            setShadowMode(this, value);
-        }
+        #state = new StateStore();
+        #visible = false;
 
         /**
          * Gets the template.
@@ -1643,22 +1610,6 @@
         }
 
         /**
-         * Gets the rendered root element.
-         * @returns {Element} The rendered root element.
-         */
-        get rootElement() {
-            return this.#rootElement;
-        }
-
-        /**
-         * Gets the node that contains the rendered output.
-         * @returns {ShadowRoot|Element} The shadow root in shadow mode, otherwise the root element.
-         */
-        get renderRoot() {
-            return this.#shadowRoot || this.#rootElement;
-        }
-
-        /**
          * Determines whether the component is initialized.
          * @returns {boolean} True when the component is initialized.
          */
@@ -1688,6 +1639,22 @@
          */
         get parentComponent() {
             return findParent(this);
+        }
+
+        /**
+         * Gets the node that contains the rendered output.
+         * @returns {ShadowRoot|Element} The shadow root in shadow mode, otherwise the root element.
+         */
+        get renderRoot() {
+            return this.#shadowRoot || this.#rootElement;
+        }
+
+        /**
+         * Gets the rendered root element.
+         * @returns {Element} The rendered root element.
+         */
+        get rootElement() {
+            return this.#rootElement;
         }
 
         /**
@@ -1844,14 +1811,6 @@
         }
 
         /**
-         * Lifecycle hook that runs when the component actually connects.
-         * Runs on the initial connection and on later shadow-mode reconnections.
-         */
-        onConnected() {
-
-        }
-
-        /**
          * Registers a promise to defer the loaded event.
          * @param {Promise<*>} promise The promise to await before marking the component as loaded.
          */
@@ -1910,6 +1869,14 @@
          * Lifecycle hook that runs after the component has been rendered and bound.
          */
         initialize() {
+
+        }
+
+        /**
+         * Lifecycle hook that runs when the component actually connects.
+         * Runs on the initial connection and on later shadow-mode reconnections.
+         */
+        onConnected() {
 
         }
 
@@ -2024,7 +1991,7 @@
 
         const container = document.createElement('div');
         container.innerHTML = html;
-        const shadowMode = parseShadowMode(container);
+        const componentShadowMode = parseShadowMode(container);
 
         const elements = container.querySelectorAll(':scope > :not(script, link[rel="stylesheet"], style)');
 
@@ -2070,7 +2037,7 @@
             });
 
         // load stylesheets/style blocks
-        if (shadowMode) ; else {
+        if (componentShadowMode) ; else {
             for (const stylesheet of stylesheets) {
                 const href = stylesheet.getAttribute('href');
 
@@ -2090,13 +2057,7 @@
 
         return Promise.all(promises).then(() => {
             const ComponentClass = class extends Component {
-                onConnected() {
-                    super.onConnected();
-
-                    for (const script of connectedScripts) {
-                        Function.constructor(script.innerText).call(this);
-                    }
-                }
+                static shadowMode = componentShadowMode;
 
                 initialize() {
                     super.initialize();
@@ -2106,12 +2067,19 @@
                     }
                 }
 
+                onConnected() {
+                    super.onConnected();
+
+                    for (const script of connectedScripts) {
+                        Function.constructor(script.innerText).call(this);
+                    }
+                }
+
                 render() {
                     return elements[0].cloneNode(true);
                 }
             };
 
-            ComponentClass.shadowMode = shadowMode;
             setShadowAssets(ComponentClass, {
                 stylesheets,
                 styleBlocks,
