@@ -41,6 +41,16 @@ test.describe('Component event bindings', () => {
         expect(count).toBe(1);
     });
 
+    test('binds component this for async normal function handlers', async ({ page }) => {
+        await defineComponent(page, 'x-component', 'XComponent', '<button @click="async function(event) { await Promise.resolve(); this.state.eventType = event.type; }"></button>');
+
+        await page.setContent('<x-component></x-component>');
+
+        const root = page.locator('[x\\:component="x-component"]');
+        await root.click();
+        await expect.poll(() => root.evaluate((element) => element.component.state.eventType)).toBe('click');
+    });
+
     test('throws when event handler is a bare expression', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<button @click="this.state.count = 1"></button>');
         const errorPromise = page.waitForEvent('pageerror');
@@ -236,6 +246,32 @@ test.describe('Component event bindings', () => {
         expect(result).toEqual({
             currentTargetTag: 'x-child',
             targetTag: 'x-child',
+        });
+    });
+
+    test('binds custom events after a light child host is replaced', async ({ page }) => {
+        await defineComponent(page, 'x-child', 'XChild', '<button id="save" @click="{ this.dispatch(\'save\', { id: 1 }) }">save</button>');
+        await defineComponent(page, 'x-parent', 'XParent', '<div><x-child @save="onSave"></x-child></div>');
+        await attachMethod(page, 'XParent', 'onSave', function(event) {
+            this.state.currentTargetId = event.currentTarget.id;
+            this.state.savedId = event.detail.id;
+        });
+
+        await page.setContent('<x-parent></x-parent>');
+
+        const button = page.locator('[x\\:component="x-child"]');
+        await expect(button).toBeVisible();
+        await expect(page.locator('x-child')).toHaveCount(0);
+        await button.click();
+
+        const result = await page.locator('[x\\:component="x-parent"]').evaluate((element) => ({
+            currentTargetId: element.component.state.currentTargetId,
+            savedId: element.component.state.savedId,
+        }));
+
+        expect(result).toEqual({
+            currentTargetId: 'save',
+            savedId: 1,
         });
     });
 

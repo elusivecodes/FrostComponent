@@ -1,9 +1,71 @@
+/**
+ * Boolean attributes defined by the HTML standard.
+ * @type {Set<string>}
+ */
+export const booleanAttributes = new Set([
+    'allowfullscreen',
+    'alpha',
+    'async',
+    'autofocus',
+    'autoplay',
+    'checked',
+    'controls',
+    'default',
+    'defer',
+    'disabled',
+    'formnovalidate',
+    'headingreset',
+    'inert',
+    'ismap',
+    'itemscope',
+    'loop',
+    'multiple',
+    'muted',
+    'nomodule',
+    'novalidate',
+    'open',
+    'playsinline',
+    'readonly',
+    'required',
+    'reversed',
+    'selected',
+    'shadowrootclonable',
+    'shadowrootcustomelementregistry',
+    'shadowrootdelegatesfocus',
+    'shadowrootserializable',
+]);
+
 export const loaded = {};
 export const loadedScripts = {};
 export const loadedStylesheets = {};
 
+const initialStates = new WeakMap();
 const shadowStyleBlocks = new WeakMap();
 const shadowStylesheets = new WeakMap();
+
+/**
+ * Adds initial state values for a component before it has initialized.
+ * @param {Element} component The component element.
+ * @param {object} values The state values to apply.
+ */
+export function setInitialState(component, values) {
+    const state = initialStates.get(component) || {};
+
+    Object.assign(state, values);
+    initialStates.set(component, state);
+}
+
+/**
+ * Takes and removes initial state values waiting for a component.
+ * @param {Element} component The component element.
+ * @returns {object|undefined} The pending state values, if any.
+ */
+export function takeInitialState(component) {
+    const state = initialStates.get(component);
+
+    initialStates.delete(component);
+    return state;
+}
 
 /**
  * Gets the cached shadow style blocks for a component class.

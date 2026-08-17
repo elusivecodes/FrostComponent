@@ -1,5 +1,6 @@
 import { evaluator } from './evaluator.js';
 import { findPropertyOwner, isComponent, isEmpty, isPlainObject, skipSubtree } from './helpers.js';
+import { booleanAttributes, setInitialState } from './vars.js';
 
 /**
  * Binds an element subtree to a component.
@@ -75,12 +76,10 @@ function bindAttribute(component, element, name, value) {
                 } else {
                     element.state[attribute] = result;
                 }
+            } else if (attribute === 'state' && isPlainObject(result)) {
+                setInitialState(element, result);
             } else {
-                if (isEmpty(result)) {
-                    element.removeAttribute(attribute);
-                } else {
-                    element.setAttribute(attribute, JSON.stringify(result));
-                }
+                setInitialState(element, { [attribute]: result });
             }
         });
         return;
@@ -98,28 +97,37 @@ function bindAttribute(component, element, name, value) {
 
                 if (isEmpty(result)) {
                     previous = null;
-                } else if (Array.isArray(result)) {
-                    element.classList.add(...result);
-                    previous = result;
+                    return;
+                }
+
+                let values = [result];
+                if (Array.isArray(result)) {
+                    values = result;
                 } else if (isPlainObject(result)) {
-                    const classes = Object.entries(result)
+                    values = Object.entries(result)
                         .filter(([_, value]) => !!value)
                         .map(([key, _]) => key);
-                    element.classList.add(...classes);
-                    previous = classes;
-                } else {
-                    element.classList.add(result);
-                    previous = [result];
                 }
+
+                const classes = values.flatMap((value) => `${value}`.trim().split(/\s+/).filter(Boolean));
+
+                element.classList.add(...classes);
+                previous = classes.length ? classes : null;
             });
             break;
         case 'style':
             component.effect(() => {
                 const result = callback();
 
-                if (previous) {
-                    for (const key of Object.keys(previous)) {
-                        element.style[key] = '';
+                if (previous?.type === 'string') {
+                    element.style.cssText = '';
+                } else if (previous?.type === 'object') {
+                    for (const key of previous.keys) {
+                        if (key.startsWith('--') || key.includes('-')) {
+                            element.style.removeProperty(key);
+                        } else {
+                            element.style[key] = '';
+                        }
                     }
                 }
 
@@ -127,13 +135,22 @@ function bindAttribute(component, element, name, value) {
                     previous = null;
                 } else if (isPlainObject(result)) {
                     for (const [key, value] of Object.entries(result)) {
-                        element.style[key] = value;
+                        if (!isEmpty(value)) {
+                            if (key.startsWith('--') || key.includes('-')) {
+                                element.style.setProperty(key, value);
+                            } else {
+                                element.style[key] = value;
+                            }
+                        }
                     }
 
-                    previous = result;
+                    previous = {
+                        keys: Object.keys(result),
+                        type: 'object',
+                    };
                 } else {
                     element.style.cssText = result;
-                    previous = null;
+                    previous = { type: 'string' };
                 }
             });
             break;
@@ -141,7 +158,9 @@ function bindAttribute(component, element, name, value) {
             component.effect(() => {
                 const result = callback();
 
-                if (isEmpty(result)) {
+                if (typeof result === 'boolean' && booleanAttributes.has(attribute)) {
+                    element.toggleAttribute(attribute, result);
+                } else if (isEmpty(result)) {
                     element.removeAttribute(attribute);
                 } else {
                     element.setAttribute(attribute, result);
@@ -189,14 +208,15 @@ function bindEvent(component, element, name, value) {
             );
         }
 
-        callback = factory.call(component);
-
-        if (callback.prototype !== undefined) {
-            callback = callback.bind(component);
-        }
+        callback = factory.call(component).bind(component);
     }
 
+    const once = params.includes('once');
+
+    let ran = false;
     const handler = (event) => {
+        ran = true;
+
         if (params.includes('self') && event.target !== event.currentTarget) {
             return;
         }
@@ -213,12 +233,26 @@ function bindEvent(component, element, name, value) {
     };
 
     const options = {
-        once: params.includes('once'),
+        once,
         capture: params.includes('capture'),
         passive: params.includes('passive'),
     };
 
     element.addEventListener(eventName, handler, options);
+
+    if (isComponent(element.tagName) && !element.initialized) {
+        element.addEventListener('initialized', () => {
+            if (once && ran) {
+                return;
+            }
+
+            const target = element.element;
+            if (target !== element) {
+                element.removeEventListener(eventName, handler, options);
+                target.addEventListener(eventName, handler, options);
+            }
+        }, { once: true });
+    }
 };
 
 /**
@@ -320,7 +354,14 @@ function bindProperty(component, element, name, value) {
     const property = name.slice(1)
         .replace(/-([a-z])/g, (_, char) => char.toUpperCase());
 
-    if (findPropertyOwner(element, property, { includeSelf: false })) {
+    const owner = findPropertyOwner(element, property, { includeSelf: false });
+    const customOwner = findPropertyOwner(
+        customElements.get(element.localName)?.prototype,
+        property,
+        { stopAt: HTMLElement.prototype },
+    );
+
+    if (owner && !customOwner) {
         throw new Error(`Property binding ".${property}" only supports custom properties`);
     }
 

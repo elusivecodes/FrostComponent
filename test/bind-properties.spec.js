@@ -45,6 +45,31 @@ test.describe('Component property bindings', () => {
         });
     });
 
+    test('binds prototype-defined properties on user custom elements', async ({ page }) => {
+        await page.evaluate(() => {
+            class DataTarget extends HTMLElement {
+                get payload() {
+                    return this._payload;
+                }
+
+                set payload(value) {
+                    this._payload = value;
+                }
+            }
+
+            customElements.define('data-target', DataTarget);
+        });
+        await defineComponent(page, 'x-parent', 'XParent', '<div><data-target id="target" .payload="payload"></data-target></div>');
+        await attachMethod(page, 'XParent', 'initialize', function() {
+            this.state.payload = { name: 'api' };
+        });
+
+        await page.setContent('<x-parent></x-parent>');
+
+        const name = await page.locator('[x\\:component="x-parent"] #target').evaluate((element) => element.payload.name);
+        expect(name).toBe('api');
+    });
+
     test('throws when binding built-in DOM properties', async ({ page }) => {
         await defineComponent(page, 'x-parent', 'XParent', '<div><input .value="token"></div>');
         const errorPromise = page.waitForEvent('pageerror');

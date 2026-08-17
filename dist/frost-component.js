@@ -649,6 +649,119 @@
     }
 
     /**
+     * Boolean attributes defined by the HTML standard.
+     * @type {Set<string>}
+     */
+    const booleanAttributes = new Set([
+        'allowfullscreen',
+        'alpha',
+        'async',
+        'autofocus',
+        'autoplay',
+        'checked',
+        'controls',
+        'default',
+        'defer',
+        'disabled',
+        'formnovalidate',
+        'headingreset',
+        'inert',
+        'ismap',
+        'itemscope',
+        'loop',
+        'multiple',
+        'muted',
+        'nomodule',
+        'novalidate',
+        'open',
+        'playsinline',
+        'readonly',
+        'required',
+        'reversed',
+        'selected',
+        'shadowrootclonable',
+        'shadowrootcustomelementregistry',
+        'shadowrootdelegatesfocus',
+        'shadowrootserializable',
+    ]);
+
+    const loaded = {};
+    const loadedScripts = {};
+    const loadedStylesheets = {};
+
+    const initialStates = new WeakMap();
+    const shadowStyleBlocks = new WeakMap();
+    const shadowStylesheets = new WeakMap();
+
+    /**
+     * Adds initial state values for a component before it has initialized.
+     * @param {Element} component The component element.
+     * @param {object} values The state values to apply.
+     */
+    function setInitialState(component, values) {
+        const state = initialStates.get(component) || {};
+
+        Object.assign(state, values);
+        initialStates.set(component, state);
+    }
+
+    /**
+     * Takes and removes initial state values waiting for a component.
+     * @param {Element} component The component element.
+     * @returns {object|undefined} The pending state values, if any.
+     */
+    function takeInitialState(component) {
+        const state = initialStates.get(component);
+
+        initialStates.delete(component);
+        return state;
+    }
+
+    /**
+     * Gets the cached shadow style blocks for a component class.
+     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+     * @returns {HTMLStyleElement[]} The cached style blocks.
+     */
+    function getShadowStyleBlocks(ComponentClass) {
+        let styleBlocks = shadowStyleBlocks.get(ComponentClass);
+
+        if (!styleBlocks) {
+            styleBlocks = [];
+            shadowStyleBlocks.set(ComponentClass, styleBlocks);
+        }
+
+        return styleBlocks;
+    }
+
+    /**
+     * Gets the cached shadow stylesheets for a component class.
+     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+     * @returns {HTMLLinkElement[]} The cached stylesheet links.
+     */
+    function getShadowStylesheets(ComponentClass) {
+        let stylesheets = shadowStylesheets.get(ComponentClass);
+
+        if (!stylesheets) {
+            stylesheets = [];
+            shadowStylesheets.set(ComponentClass, stylesheets);
+        }
+
+        return stylesheets;
+    }
+
+    /**
+     * Sets the cached shadow assets for a component class.
+     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+     * @param {object} [options] The shadow asset options.
+     * @param {HTMLStyleElement[]} [options.styleBlocks=[]] The shadow style blocks.
+     * @param {HTMLLinkElement[]} [options.stylesheets=[]] The shadow stylesheet links.
+     */
+    function setShadowAssets(ComponentClass, { styleBlocks = [], stylesheets = [] } = {}) {
+        shadowStyleBlocks.set(ComponentClass, [...styleBlocks]);
+        shadowStylesheets.set(ComponentClass, [...stylesheets]);
+    }
+
+    /**
      * Binds an element subtree to a component.
      * @param {Component} component The component that owns bindings.
      * @param {Element} element The element subtree to bind.
@@ -721,12 +834,10 @@
                     } else {
                         element.state[attribute] = result;
                     }
+                } else if (attribute === 'state' && isPlainObject(result)) {
+                    setInitialState(element, result);
                 } else {
-                    if (isEmpty(result)) {
-                        element.removeAttribute(attribute);
-                    } else {
-                        element.setAttribute(attribute, JSON.stringify(result));
-                    }
+                    setInitialState(element, { [attribute]: result });
                 }
             });
             return;
@@ -744,28 +855,37 @@
 
                     if (isEmpty(result)) {
                         previous = null;
-                    } else if (Array.isArray(result)) {
-                        element.classList.add(...result);
-                        previous = result;
+                        return;
+                    }
+
+                    let values = [result];
+                    if (Array.isArray(result)) {
+                        values = result;
                     } else if (isPlainObject(result)) {
-                        const classes = Object.entries(result)
+                        values = Object.entries(result)
                             .filter(([_, value]) => !!value)
                             .map(([key, _]) => key);
-                        element.classList.add(...classes);
-                        previous = classes;
-                    } else {
-                        element.classList.add(result);
-                        previous = [result];
                     }
+
+                    const classes = values.flatMap((value) => `${value}`.trim().split(/\s+/).filter(Boolean));
+
+                    element.classList.add(...classes);
+                    previous = classes.length ? classes : null;
                 });
                 break;
             case 'style':
                 component.effect(() => {
                     const result = callback();
 
-                    if (previous) {
-                        for (const key of Object.keys(previous)) {
-                            element.style[key] = '';
+                    if (previous?.type === 'string') {
+                        element.style.cssText = '';
+                    } else if (previous?.type === 'object') {
+                        for (const key of previous.keys) {
+                            if (key.startsWith('--') || key.includes('-')) {
+                                element.style.removeProperty(key);
+                            } else {
+                                element.style[key] = '';
+                            }
                         }
                     }
 
@@ -773,13 +893,22 @@
                         previous = null;
                     } else if (isPlainObject(result)) {
                         for (const [key, value] of Object.entries(result)) {
-                            element.style[key] = value;
+                            if (!isEmpty(value)) {
+                                if (key.startsWith('--') || key.includes('-')) {
+                                    element.style.setProperty(key, value);
+                                } else {
+                                    element.style[key] = value;
+                                }
+                            }
                         }
 
-                        previous = result;
+                        previous = {
+                            keys: Object.keys(result),
+                            type: 'object',
+                        };
                     } else {
                         element.style.cssText = result;
-                        previous = null;
+                        previous = { type: 'string' };
                     }
                 });
                 break;
@@ -787,7 +916,9 @@
                 component.effect(() => {
                     const result = callback();
 
-                    if (isEmpty(result)) {
+                    if (typeof result === 'boolean' && booleanAttributes.has(attribute)) {
+                        element.toggleAttribute(attribute, result);
+                    } else if (isEmpty(result)) {
                         element.removeAttribute(attribute);
                     } else {
                         element.setAttribute(attribute, result);
@@ -834,14 +965,15 @@
                 );
             }
 
-            callback = factory.call(component);
-
-            if (callback.prototype !== undefined) {
-                callback = callback.bind(component);
-            }
+            callback = factory.call(component).bind(component);
         }
 
+        const once = params.includes('once');
+
+        let ran = false;
         const handler = (event) => {
+            ran = true;
+
             if (params.includes('self') && event.target !== event.currentTarget) {
                 return;
             }
@@ -858,12 +990,26 @@
         };
 
         const options = {
-            once: params.includes('once'),
+            once,
             capture: params.includes('capture'),
             passive: params.includes('passive'),
         };
 
         element.addEventListener(eventName, handler, options);
+
+        if (isComponent(element.tagName) && !element.initialized) {
+            element.addEventListener('initialized', () => {
+                if (once && ran) {
+                    return;
+                }
+
+                const target = element.element;
+                if (target !== element) {
+                    element.removeEventListener(eventName, handler, options);
+                    target.addEventListener(eventName, handler, options);
+                }
+            }, { once: true });
+        }
     }
     /**
      * Binds an input element to component state.
@@ -963,7 +1109,14 @@
         const property = name.slice(1)
             .replace(/-([a-z])/g, (_, char) => char.toUpperCase());
 
-        if (findPropertyOwner(element, property, { includeSelf: false })) {
+        const owner = findPropertyOwner(element, property, { includeSelf: false });
+        const customOwner = findPropertyOwner(
+            customElements.get(element.localName)?.prototype,
+            property,
+            { stopAt: HTMLElement.prototype },
+        );
+
+        if (owner && !customOwner) {
             throw new Error(`Property binding ".${property}" only supports custom properties`);
         }
 
@@ -1455,57 +1608,11 @@
 
             component.removeAttribute(attr.name);
         }
-    }
 
-    const loaded = {};
-    const loadedScripts = {};
-    const loadedStylesheets = {};
-
-    const shadowStyleBlocks = new WeakMap();
-    const shadowStylesheets = new WeakMap();
-
-    /**
-     * Gets the cached shadow style blocks for a component class.
-     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
-     * @returns {HTMLStyleElement[]} The cached style blocks.
-     */
-    function getShadowStyleBlocks(ComponentClass) {
-        let styleBlocks = shadowStyleBlocks.get(ComponentClass);
-
-        if (!styleBlocks) {
-            styleBlocks = [];
-            shadowStyleBlocks.set(ComponentClass, styleBlocks);
+        const initialState = takeInitialState(component);
+        if (initialState) {
+            component.state.set(initialState);
         }
-
-        return styleBlocks;
-    }
-
-    /**
-     * Gets the cached shadow stylesheets for a component class.
-     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
-     * @returns {HTMLLinkElement[]} The cached stylesheet links.
-     */
-    function getShadowStylesheets(ComponentClass) {
-        let stylesheets = shadowStylesheets.get(ComponentClass);
-
-        if (!stylesheets) {
-            stylesheets = [];
-            shadowStylesheets.set(ComponentClass, stylesheets);
-        }
-
-        return stylesheets;
-    }
-
-    /**
-     * Sets the cached shadow assets for a component class.
-     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
-     * @param {object} [options] The shadow asset options.
-     * @param {HTMLStyleElement[]} [options.styleBlocks=[]] The shadow style blocks.
-     * @param {HTMLLinkElement[]} [options.stylesheets=[]] The shadow stylesheet links.
-     */
-    function setShadowAssets(ComponentClass, { styleBlocks = [], stylesheets = [] } = {}) {
-        shadowStyleBlocks.set(ComponentClass, [...styleBlocks]);
-        shadowStylesheets.set(ComponentClass, [...stylesheets]);
     }
 
     /**

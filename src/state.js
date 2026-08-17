@@ -1,4 +1,5 @@
 import { isPlainObject } from './helpers.js';
+import { takeInitialState } from './vars.js';
 
 /**
  * Parses component state from non-framework attributes and removes them from the host.
@@ -24,5 +25,10 @@ export function parseState(component) {
         }
 
         component.removeAttribute(attr.name);
+    }
+
+    const initialState = takeInitialState(component);
+    if (initialState) {
+        component.state.set(initialState);
     }
 };
