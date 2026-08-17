@@ -41,11 +41,11 @@ jobs:
       - name: Lint
         run: npm run js-lint
 
-      - name: Run tests
+      - name: Build and run tests
         run: npm test
 
-      - name: Build
-        run: npm run build
+      - name: Verify generated bundles are current
+        run: git diff --exit-code -- dist
 
       - name: Validate package contents
         run: npm pack --dry-run
