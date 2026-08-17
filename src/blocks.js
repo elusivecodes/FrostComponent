@@ -1,6 +1,7 @@
 import { bind } from './bind.js';
 import { evaluator } from './evaluator.js';
 import { isComponent, skipSubtree } from './helpers.js';
+import { setInitialState } from './vars.js';
 
 /**
  * @typedef {object} ConditionalCase
@@ -39,8 +40,14 @@ export function parseBlocks(element, conditionals = [], loops = []) {
         },
     );
 
+    const nodes = [];
     let node = walker.nextNode();
     while (node) {
+        nodes.push(node);
+        node = skipSubtree(walker);
+    }
+
+    for (const node of nodes) {
         const hasConditional = node.hasAttribute('x:if');
         const hasLoop = node.hasAttribute('x:each');
 
@@ -53,8 +60,6 @@ export function parseBlocks(element, conditionals = [], loops = []) {
         } else if (hasLoop) {
             loops.push(parseLoop(node));
         }
-
-        node = skipSubtree(walker);
     }
 
     return [conditionals, loops];
@@ -200,7 +205,7 @@ export function processConditionals(component, conditionals) {
  */
 export function processLoops(component, loops) {
     for (const { iterable, identifier, element, end } of loops) {
-        let loopComponents = {};
+        let loopRecords = new Map();
         const callback = evaluator(component, iterable, []);
         component.effect(() => {
             const items = callback();
@@ -209,9 +214,9 @@ export function processLoops(component, loops) {
                 throw new Error(`Iterable "${iterable}" must be an array`);
             }
 
-            const previousComponents = { ...loopComponents };
+            const previousRecords = loopRecords;
 
-            loopComponents = {};
+            loopRecords = new Map();
 
             for (const item of items) {
                 if (!(identifier in item)) {
@@ -220,19 +225,36 @@ export function processLoops(component, loops) {
 
                 const id = item[identifier];
 
-                if (id in loopComponents) {
+                if (loopRecords.has(id)) {
                     throw new Error(`Duplicate identifier "${id}" in "${iterable}"`);
                 }
 
                 let loopComponent;
-                if (id in previousComponents && previousComponents[id].initialized) {
-                    loopComponent = previousComponents[id];
-                    loopComponent.state.set(item);
+                if (previousRecords.has(id)) {
+                    const previous = previousRecords.get(id);
+                    const state = { ...item };
 
-                    end.parentNode.insertBefore(loopComponent.element, end);
+                    loopComponent = previous.component;
+
+                    for (const key of previous.stateKeys) {
+                        if (!Object.hasOwn(item, key)) {
+                            state[key] = undefined;
+                        }
+                    }
+
+                    if (loopComponent.initialized) {
+                        loopComponent.state.set(state);
+                    } else {
+                        setInitialState(loopComponent, state);
+                    }
+
+                    end.parentNode.insertBefore(
+                        loopComponent.initialized ? loopComponent.element : loopComponent,
+                        end,
+                    );
                 } else {
                     loopComponent = element.cloneNode(true);
-                    loopComponent.setAttribute('state', JSON.stringify(item));
+                    setInitialState(loopComponent, item);
 
                     const [nestedConditionals, nestedLoops] = parseBlocks(loopComponent);
 
@@ -243,11 +265,14 @@ export function processLoops(component, loops) {
                     end.parentNode.insertBefore(loopComponent, end);
                 }
 
-                loopComponents[id] = loopComponent;
+                loopRecords.set(id, {
+                    component: loopComponent,
+                    stateKeys: Object.keys(item),
+                });
             }
 
-            for (const [id, loopComponent] of Object.entries(previousComponents)) {
-                if (id in loopComponents) {
+            for (const [id, { component: loopComponent }] of previousRecords) {
+                if (loopRecords.has(id)) {
                     continue;
                 }
 

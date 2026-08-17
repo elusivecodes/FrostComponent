@@ -46,7 +46,6 @@
         "js-compile": "rollup --config",
         "js-lint": "eslint",
         "js-minify": "terser --compress passes=2 --mangle --source-map \"content=dist/frost-component.js.map,url=frost-component.min.js.map\" --output dist/frost-component.min.js dist/frost-component.js",
-        "pretest": "npm run build",
         "test": "playwright test"
     },
     "dependencies": {

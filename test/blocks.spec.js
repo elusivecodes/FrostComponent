@@ -46,6 +46,24 @@ test.describe('Component blocks', () => {
         await expect(root.locator('#c')).toHaveCount(0);
     });
 
+    test('processes multiple sibling conditional blocks', async ({ page }) => {
+        await defineComponent(
+            page,
+            'x-component',
+            'XComponent',
+            '<div><span id="a" x:if="first">A</span><span id="b" x:if="second">B</span></div>',
+        );
+        await page.setContent('<x-component first="false" second="false"></x-component>');
+
+        const root = page.locator('[x\\:component="x-component"]');
+        await expect(root.locator('#a')).toHaveCount(0);
+        await expect(root.locator('#b')).toHaveCount(0);
+
+        await updateState(page, 'x-component', { first: true, second: true });
+        await expect(root.locator('#a')).toHaveCount(1);
+        await expect(root.locator('#b')).toHaveCount(1);
+    });
+
     test('renders x:each loops from initial items', async ({ page }) => {
         await defineComponent(page, 'x-child', 'XChild', '<div class="item"></div>');
         await defineComponent(page, 'x-parent', 'XParent', '<div><x-child x:each="items" x:id="id"></x-child></div>');
@@ -63,6 +81,19 @@ test.describe('Component blocks', () => {
         const root = page.locator('[x\\:component="x-parent"]');
         await updateState(page, 'x-parent', { items: [{ id: 2 }] });
         await expect(root.locator('.item')).toHaveCount(1);
+    });
+
+    test('processes multiple sibling loop blocks', async ({ page }) => {
+        await defineComponent(page, 'x-child', 'XChild', '<div class="item">{name}</div>');
+        await defineComponent(
+            page,
+            'x-parent',
+            'XParent',
+            '<div><x-child x:each="first" x:id="id"></x-child><x-child x:each="second" x:id="id"></x-child></div>',
+        );
+        await page.setContent(`<x-parent first="[{ id: 1, name: 'a' }]" second="[{ id: 2, name: 'b' }, { id: 3, name: 'c' }]"></x-parent>`);
+
+        await expect(page.locator('[x\\:component="x-parent"] .item')).toHaveText(['a', 'b', 'c']);
     });
 
     test('uses default iterable and identifier for x:each when omitted', async ({ page }) => {
@@ -134,6 +165,137 @@ test.describe('Component blocks', () => {
         await updateState(page, 'x-parent', { items: [{ id: 1, name: 'b' }] });
         await expect(page.locator('[x\\:component="x-parent"] .item')).toHaveCount(1);
         await expect(item).toHaveText('b');
+    });
+
+    test('reuses pending loop components across rapid same-id updates', async ({ page }) => {
+        await page.addScriptTag({
+            content: `
+                class XChild extends window.Component {
+                    static get template() {
+                        return '<div class="item">{name}</div>';
+                    }
+
+                    initialize() {
+                        window._loopInitializations = (window._loopInitializations || 0) + 1;
+                    }
+                }
+
+                class XParent extends window.Component {
+                    static get template() {
+                        return '<div><x-child x:each="items" x:id="id"></x-child></div>';
+                    }
+
+                    initialize() {
+                        this.state.items = [{ id: 1, name: 'old' }];
+                        queueMicrotask(() => {
+                            this.state.items = [{ id: 1, name: 'new' }];
+                        });
+                    }
+                }
+
+                customElements.define('x-child', XChild);
+                customElements.define('x-parent', XParent);
+            `,
+        });
+
+        await page.setContent('<x-parent></x-parent>');
+
+        const items = page.locator('[x\\:component="x-parent"] .item');
+        await expect(items).toHaveCount(1);
+        await expect(items).toHaveText('new');
+        await expect.poll(() => page.evaluate(() => window._loopInitializations)).toBe(1);
+    });
+
+    test('clears omitted loop item fields without clearing child state', async ({ page }) => {
+        await defineComponent(page, 'x-child', 'XChild', '<div class="item">{name}|{local}</div>');
+        await defineComponent(
+            page,
+            'x-parent',
+            'XParent',
+            `<div><x-child local="'kept'" x:each="items" x:id="id"></x-child></div>`,
+        );
+        await page.setContent(`<x-parent items="[{ id: 1, name: 'a' }]"></x-parent>`);
+
+        const item = page.locator('[x\\:component="x-parent"] .item');
+        await expect(item).toHaveText('a|kept');
+
+        await updateState(page, 'x-parent', { items: [{ id: 1 }] });
+        await expect(item).toHaveText('|kept');
+
+        const stateWasPreserved = await item.evaluate((element) => {
+            return element.component.state.name === undefined && element.component.state.local === 'kept';
+        });
+        expect(stateWasPreserved).toBe(true);
+    });
+
+    test('supports loop identifiers that collide with object property names', async ({ page }) => {
+        await defineComponent(page, 'x-child', 'XChild', '<div class="item">{id}</div>');
+        await defineComponent(page, 'x-parent', 'XParent', '<div><x-child x:each="items" x:id="id"></x-child></div>');
+        await page.setContent('<x-parent items="[]"></x-parent>');
+
+        await updateState(page, 'x-parent', {
+            items: [
+                { id: 'toString' },
+                { id: '__proto__' },
+                { id: 1 },
+                { id: '1' },
+            ],
+        });
+
+        await expect(page.locator('[x\\:component="x-parent"] .item')).toHaveText([
+            'toString',
+            '__proto__',
+            '1',
+            '1',
+        ]);
+    });
+
+    test('passes non-JSON loop item state before child initialization', async ({ page }) => {
+        await page.addScriptTag({
+            content: `
+                class XChild extends window.Component {
+                    static get template() {
+                        return '<div class="item"></div>';
+                    }
+
+                    initialize() {
+                        window._loopState = {
+                            callback: this.state.callback(),
+                            id: String(this.state.id),
+                            idType: typeof this.state.id,
+                        };
+                    }
+                }
+
+                class XParent extends window.Component {
+                    static get template() {
+                        return '<div><x-child x:each="items" x:id="id"></x-child></div>';
+                    }
+
+                    initialize() {
+                        this.state.items = [{
+                            callback: () => 'ok',
+                            id: 1n,
+                        }];
+                    }
+                }
+
+                customElements.define('x-child', XChild);
+                customElements.define('x-parent', XParent);
+            `,
+        });
+
+        await page.setContent('<x-parent></x-parent>');
+        await page.waitForFunction(() => window._loopState);
+
+        await expect(page.locator('[x\\:component="x-parent"] .item')).toHaveCount(1);
+
+        const state = await page.evaluate(() => window._loopState);
+        expect(state).toEqual({
+            callback: 'ok',
+            id: '1',
+            idType: 'bigint',
+        });
     });
 
     test('processes nested blocks inside conditional branches', async ({ page }) => {
