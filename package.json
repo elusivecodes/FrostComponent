@@ -1,6 +1,6 @@
 {
     "name": "@fr0st/component",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "private": false,
     "description": "Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading.",
     "keywords": [
@@ -56,7 +56,6 @@
         "@playwright/test": "^1.62.1",
         "@rollup/plugin-node-resolve": "^16.0.3",
         "eslint": "^10.8.1",
-        "playwright": "^1.62.1",
         "rollup": "^4.62.4",
         "terser": "^5.50.0"
     },
