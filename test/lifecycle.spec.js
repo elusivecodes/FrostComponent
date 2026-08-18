@@ -241,6 +241,35 @@ test.describe('Component lifecycle', () => {
         expect(events).toEqual(['parent:initialized', 'child:initialized', 'child:loaded', 'parent:loaded']);
     });
 
+    test('loads when a pending conditional child is removed before initialization', async ({ page }) => {
+        await defineComponent(page, 'x-child', 'XChild', '<div></div>');
+        await defineComponent(page, 'x-parent', 'XParent', '<div><x-child x:if="show"></x-child></div>');
+
+        const result = await page.evaluate(async () => {
+            const parent = document.createElement('x-parent');
+            parent.setAttribute('show', 'true');
+            parent.addEventListener('initialized', () => {
+                parent.state.show = false;
+            }, { once: true });
+
+            document.body.appendChild(parent);
+
+            await new Promise((resolve) => {
+                parent.addEventListener('loaded', resolve, { once: true });
+            });
+
+            return {
+                childCount: document.querySelectorAll('x-child').length,
+                loaded: parent.loaded,
+            };
+        });
+
+        expect(result).toEqual({
+            childCount: 0,
+            loaded: true,
+        });
+    });
+
     test('throws when a component is reattached after initialization', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div></div>');
 

@@ -282,13 +282,46 @@ export default class Component extends HTMLElement {
                 const event = new Event('initialized');
                 this.dispatchEvent(event);
 
-                const loadedPromises = this.childComponents
-                    .filter((component) => !component.loaded)
-                    .map((component) =>
-                        new Promise((resolve) => {
-                            component.addEventListener('loaded', resolve, { once: true });
-                        }),
-                    );
+                let pendingChildren = this.childComponents
+                    .filter((component) => !component.loaded);
+                const childrenPromise = !pendingChildren.length ?
+                    Promise.resolve() :
+                    new Promise((resolve) => {
+                        const check = () => {
+                            const children = this.childComponents;
+                            pendingChildren = pendingChildren.filter((child) => {
+                                if (child.loaded) {
+                                    return false;
+                                }
+
+                                if (children.includes(child)) {
+                                    return true;
+                                }
+
+                                child.removeEventListener('loaded', check);
+                                return false;
+                            });
+
+                            if (pendingChildren.length) {
+                                return;
+                            }
+
+                            observer.disconnect();
+                            resolve();
+                        };
+
+                        const observer = new MutationObserver(check);
+                        observer.observe(this.renderRoot, {
+                            childList: true,
+                            subtree: true,
+                        });
+
+                        for (const child of pendingChildren) {
+                            child.addEventListener('loaded', check, { once: true });
+                        }
+
+                        check();
+                    });
 
                 const awaitGates = () => {
                     if (!this.#loadedGates.size) {
@@ -299,7 +332,7 @@ export default class Component extends HTMLElement {
                     return Promise.allSettled(promises).then(awaitGates);
                 };
 
-                Promise.all(loadedPromises).then(awaitGates).then(() => {
+                childrenPromise.then(awaitGates).then(() => {
                     this.#loaded = true;
 
                     const event = new Event('loaded');

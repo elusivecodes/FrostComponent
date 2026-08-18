@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
-import { defineComponent, initializePage } from './support/utils.js';
+import { attachMethod, defineComponent, initializePage } from './support/utils.js';
 
 const distPath = path.resolve('dist/frost-component.js');
 
@@ -288,6 +288,197 @@ test.describe('Component observers', () => {
 
         const targets = await page.evaluate(() => window._ioTargets);
         expect(targets).toContain('x-shadow');
+    });
+
+    test('observes initialized light DOM roots when bootstrap is called later', async ({ page }) => {
+        await defineComponent(page, 'x-light', 'XLight', '<div id="light"></div>');
+
+        await page.evaluate(() => {
+            window._ioTargets = [];
+            window.IntersectionObserver = class {
+                disconnect() { }
+
+                observe(target) {
+                    window._ioTargets.push(target.id || target.tagName.toLowerCase());
+                }
+
+                unobserve() { }
+            };
+        });
+
+        await page.setContent('<x-light></x-light>');
+        await page.waitForFunction(() => document.querySelector('#light')?.component?.loaded === true);
+
+        await page.evaluate(() => {
+            window.Component.bootstrap();
+        });
+
+        await page.waitForFunction(() => window._ioTargets.includes('light'));
+        expect(await page.evaluate(() => window._ioTargets)).toContain('light');
+    });
+
+    test('keeps an outer component mounted when its component root is replaced', async ({ page }) => {
+        await defineComponent(page, 'x-child', 'XChild', '<span>{label}</span>');
+        await defineComponent(page, 'x-parent', 'XParent', '<x-child :label="label"></x-child>');
+        await attachMethod(page, 'XParent', 'initialize', function() {
+            this.state.use('label', 'first');
+        });
+
+        await page.evaluate(() => {
+            window.Component.bootstrap();
+            window._parent = document.createElement('x-parent');
+            document.body.appendChild(window._parent);
+        });
+
+        await page.waitForFunction(() => document.querySelector('span')?.component?.loaded === true);
+
+        await page.evaluate(() => {
+            window._parent.state.label = 'second';
+        });
+
+        await expect(page.locator('span')).toHaveText('second');
+        expect(await page.evaluate(() => window._parent.mounted)).toBe(true);
+    });
+
+    test('does not emit duplicate mount events when a light DOM root moves', async ({ page }) => {
+        await defineComponent(page, 'x-component', 'XComponent', '<div id="root"></div>');
+
+        await page.evaluate(() => {
+            window.Component.bootstrap();
+            window._mountEvents = [];
+
+            const component = document.createElement('x-component');
+            component.addEventListener('mounted', () => window._mountEvents.push('mounted'));
+            component.addEventListener('dismounted', () => window._mountEvents.push('dismounted'));
+
+            const target = document.createElement('section');
+            target.id = 'target';
+            document.body.appendChild(target);
+            document.body.appendChild(component);
+        });
+
+        await page.waitForFunction(() => window._mountEvents.length === 1);
+
+        await page.evaluate(() => {
+            document.querySelector('#target').appendChild(document.querySelector('#root'));
+        });
+
+        await page.waitForTimeout(30);
+        expect(await page.evaluate(() => window._mountEvents)).toEqual(['mounted']);
+    });
+
+    test('propagates observer events through component ownership chains', async ({ page }) => {
+        await defineComponent(page, 'x-child', 'XChild', '<div id="leaf"></div>');
+        await defineComponent(page, 'x-parent', 'XParent', '<x-child></x-child>');
+
+        await page.evaluate(() => {
+            window._ioCallback = null;
+            window.IntersectionObserver = class {
+                constructor(callback) {
+                    window._ioCallback = callback;
+                }
+
+                disconnect() { }
+
+                observe() { }
+
+                unobserve() { }
+            };
+
+            window.Component.bootstrap();
+            window._mountEvents = [];
+
+            const parent = document.createElement('x-parent');
+            parent.addEventListener('mounted', () => window._mountEvents.push('parent:mounted'));
+            parent.addEventListener('initialized', () => {
+                parent.rootElement.addEventListener('mounted', () => window._mountEvents.push('child:mounted'));
+            }, { once: true });
+
+            document.body.appendChild(parent);
+        });
+
+        await page.waitForFunction(() => document.querySelector('#leaf')?.component?.loaded === true);
+        expect(await page.evaluate(() => window._mountEvents)).toEqual([
+            'child:mounted',
+            'parent:mounted',
+        ]);
+
+        await page.evaluate(() => {
+            const leaf = document.querySelector('#leaf');
+            const child = leaf.component;
+            const parent = child.component;
+
+            window._ownershipEvents = [];
+            child.addEventListener('invisible', () => window._ownershipEvents.push('child:invisible'));
+            parent.addEventListener('invisible', () => window._ownershipEvents.push('parent:invisible'));
+            child.addEventListener('visible', () => window._ownershipEvents.push('child:visible'));
+            parent.addEventListener('visible', () => window._ownershipEvents.push('parent:visible'));
+            child.addEventListener('dismounted', () => window._ownershipEvents.push('child:dismounted'));
+            parent.addEventListener('dismounted', () => window._ownershipEvents.push('parent:dismounted'));
+
+            window._ioCallback([{ target: leaf, isIntersecting: false }]);
+            window._ioCallback([{ target: leaf, isIntersecting: true }]);
+            leaf.remove();
+        });
+
+        await page.waitForFunction(() => window._ownershipEvents.length === 6);
+        expect(await page.evaluate(() => window._ownershipEvents)).toEqual([
+            'child:invisible',
+            'parent:invisible',
+            'child:visible',
+            'parent:visible',
+            'child:dismounted',
+            'parent:dismounted',
+        ]);
+    });
+
+    test('does not observe a moved shadow host more than once', async ({ page }) => {
+        await defineComponent(page, 'x-shadow', 'XShadow', '<div></div>');
+
+        await page.evaluate(() => {
+            window.XShadow.shadowMode = 'open';
+            window._ioTargets = [];
+            window._mountCount = 0;
+            window.IntersectionObserver = class {
+                disconnect() { }
+
+                observe(target) {
+                    window._ioTargets.push(target);
+                }
+
+                unobserve() { }
+            };
+
+            window.Component.bootstrap();
+
+            const first = document.createElement('section');
+            const second = document.createElement('section');
+            const component = document.createElement('x-shadow');
+            component.addEventListener('mounted', () => window._mountCount++);
+
+            first.id = 'first';
+            second.id = 'second';
+            document.body.append(first, second);
+            first.appendChild(component);
+        });
+
+        await page.waitForFunction(() => document.querySelector('x-shadow')?.loaded === true);
+
+        await page.evaluate(() => {
+            document.querySelector('#second').appendChild(document.querySelector('x-shadow'));
+        });
+
+        await page.waitForTimeout(30);
+
+        const result = await page.evaluate(() => ({
+            mountCount: window._mountCount,
+            observedCount: window._ioTargets.length,
+        }));
+
+        expect(result).toEqual({
+            mountCount: 1,
+            observedCount: 1,
+        });
     });
 
     test('does not duplicate observation when bootstrap is called multiple times', async ({ page }) => {

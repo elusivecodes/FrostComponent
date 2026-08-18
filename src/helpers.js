@@ -25,6 +25,32 @@ export function findChildren(component, element, components = []) {
 };
 
 /**
+ * Finds the components represented by a public DOM element.
+ * @param {Element} element The public element to inspect.
+ * @returns {Component[]} The components represented by the element, from inner to outer.
+ */
+export function findComponentChain(element) {
+    const isShadowHost = isComponent(element.tagName) &&
+        element.initialized &&
+        element.renderRoot instanceof ShadowRoot;
+    let component = isShadowHost ?
+        element :
+        element.component;
+
+    if (component?.element !== element) {
+        return [];
+    }
+
+    const owners = [];
+    while (component) {
+        owners.push(component);
+        component = component.component;
+    }
+
+    return owners;
+};
+
+/**
  * Finds the parent component of a component.
  * @param {Component} component The component to resolve.
  * @returns {Component|null} The parent component, or `null` if none exists.

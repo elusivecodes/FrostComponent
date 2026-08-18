@@ -1,9 +1,12 @@
-import { flattenElements, isComponent } from './helpers.js';
+import { findComponentChain, flattenElements, isComponent } from './helpers.js';
 import { load } from './loader.js';
 import Suspense from './suspense.js';
 import { loadedScripts, loadedStylesheets } from './vars.js';
 
+const mountedComponents = new WeakSet();
+const observedNodes = new WeakSet();
 const observedShadowRoots = new WeakSet();
+const pendingComponents = new WeakSet();
 let mutationObserver;
 let intersectionObserver;
 let currentBaseUrl = null;
@@ -23,71 +26,99 @@ const loadComponents = (nodes) => {
 };
 
 /**
- * Starts observing a shadow-mode component host after it has initialized.
- * @param {Element} node The potential component host to observe.
+ * Mounts the components represented by a connected node and observes shadow descendants.
+ * @param {Element} node The node to mount.
  */
-const mountShadowHost = (node) => {
-    if (!isComponent(node.tagName) || (node.initialized && !(node.renderRoot instanceof ShadowRoot))) {
+const mountNode = (node) => {
+    if (!node.isConnected) {
         return;
     }
 
-    const callback = () => {
-        if (!(node.renderRoot instanceof ShadowRoot)) {
+    const owners = findComponentChain(node);
+    if (owners.length) {
+        if (!observedNodes.has(node)) {
+            observedNodes.add(node);
+            intersectionObserver.observe(node);
+        }
+
+        for (const component of owners) {
+            if (mountedComponents.has(component)) {
+                continue;
+            }
+
+            mountedComponents.add(component);
+            component.dispatchEvent(new Event('mounted'));
+        }
+    }
+
+    if (!isComponent(node.tagName)) {
+        return;
+    }
+
+    if (!node.initialized) {
+        if (pendingComponents.has(node)) {
             return;
         }
 
-        const renderRoot = node.renderRoot;
-
-        node.dispatchEvent(new Event('mounted'));
-        intersectionObserver.observe(node);
-
-        if (!observedShadowRoots.has(renderRoot)) {
-            observedShadowRoots.add(renderRoot);
-            mutationObserver.observe(renderRoot, {
-                childList: true,
-                subtree: true,
-            });
-        }
-
-        const elements = renderRoot.querySelectorAll('*');
-
-        loadComponents(elements);
-
-        for (const element of elements) {
-            mountShadowHost(element);
-        }
-    };
-
-    if (node.initialized) {
-        callback();
-    } else {
-        node.addEventListener('initialized', callback, { once: true });
+        pendingComponents.add(node);
+        node.addEventListener('initialized', () => {
+            pendingComponents.delete(node);
+            mountNode(node);
+        }, { once: true });
+        return;
     }
-};
 
-/**
- * Stops observing a shadow-mode component host and its rendered descendants.
- * @param {Element} node The component host to dismount.
- */
-const dismountShadowHost = (node) => {
-    if (!isComponent(node.tagName) || !(node.renderRoot instanceof ShadowRoot)) {
+    if (!(node.renderRoot instanceof ShadowRoot)) {
         return;
     }
 
     const renderRoot = node.renderRoot;
 
-    node.dispatchEvent(new Event('dismounted'));
-    intersectionObserver.unobserve(node);
+    if (!observedShadowRoots.has(renderRoot)) {
+        observedShadowRoots.add(renderRoot);
+        mutationObserver.observe(renderRoot, {
+            childList: true,
+            subtree: true,
+        });
+    }
 
     const elements = renderRoot.querySelectorAll('*');
 
+    loadComponents(elements);
+
     for (const element of elements) {
-        if (element.component) {
-            element.component.dispatchEvent(new Event('dismounted'));
-            intersectionObserver.unobserve(element);
-        } else {
-            dismountShadowHost(element);
+        mountNode(element);
+    }
+};
+
+/**
+ * Dismounts the components represented by a removed node and its shadow descendants.
+ * @param {Element} node The removed node to dismount.
+ */
+const dismountNode = (node) => {
+    if (observedNodes.has(node)) {
+        observedNodes.delete(node);
+        intersectionObserver.unobserve(node);
+    }
+
+    for (const component of findComponentChain(node)) {
+        if (component.element.isConnected || !mountedComponents.has(component)) {
+            continue;
         }
+
+        mountedComponents.delete(component);
+        component.dispatchEvent(new Event('dismounted'));
+    }
+
+    if (!isComponent(node.tagName) || !(node.renderRoot instanceof ShadowRoot)) {
+        return;
+    }
+
+    const renderRoot = node.renderRoot;
+    const elements = renderRoot.querySelectorAll('*');
+
+    for (const element of elements) {
+        dismountNode(element);
     }
 };
 
@@ -107,14 +138,13 @@ const bootstrapCallback = () => {
     if (!intersectionObserver) {
         intersectionObserver = new IntersectionObserver((entries) => {
             for (const entry of entries) {
-                if (isComponent(entry.target.tagName) && entry.isIntersecting !== entry.target.visible) {
-                    const event = new Event(entry.isIntersecting ? 'visible' : 'invisible');
-                    entry.target.dispatchEvent(event);
-                }
+                for (const component of findComponentChain(entry.target)) {
+                    if (entry.isIntersecting === component.visible) {
+                        continue;
+                    }
 
-                if (entry.target.component && entry.isIntersecting !== entry.target.component.visible) {
                     const event = new Event(entry.isIntersecting ? 'visible' : 'invisible');
-                    entry.target.component.dispatchEvent(event);
+                    component.dispatchEvent(event);
                 }
             }
         });
@@ -122,48 +152,44 @@ const bootstrapCallback = () => {
 
     if (!mutationObserver) {
         mutationObserver = new MutationObserver((mutations) => {
+            const addedNodes = new Set();
+            const removedNodes = new Set();
+
             for (const mutation of mutations) {
                 if (mutation.type !== 'childList') {
                     continue;
                 }
 
-                const addedNodes = flattenElements(mutation.addedNodes);
-                const removedNodes = flattenElements(mutation.removedNodes);
-
-                loadComponents(addedNodes);
-
-                for (const node of addedNodes) {
-                    if (!node.isConnected) {
-                        continue;
-                    }
-
-                    if (isComponent(node.tagName)) {
-                        mountShadowHost(node);
-                    }
-
-                    if (node.component) {
-                        node.component.dispatchEvent(new Event('mounted'));
-                        intersectionObserver.observe(node);
-                    }
+                for (const node of flattenElements(mutation.addedNodes)) {
+                    addedNodes.add(node);
                 }
 
-                for (const node of removedNodes) {
-                    if (node.isConnected) {
-                        continue;
-                    }
-
-                    dismountShadowHost(node);
-
-                    if (node.component) {
-                        node.component.dispatchEvent(new Event('dismounted'));
-                        intersectionObserver.unobserve(node);
-                    }
+                for (const node of flattenElements(mutation.removedNodes)) {
+                    removedNodes.add(node);
                 }
+            }
+
+            loadComponents([...addedNodes]);
+
+            for (const node of removedNodes) {
+                if (node.isConnected) {
+                    continue;
+                }
+
+                dismountNode(node);
+            }
+
+            for (const node of addedNodes) {
+                if (!node.isConnected) {
+                    continue;
+                }
+
+                mountNode(node);
             }
         });
 
         for (const element of elements) {
-            mountShadowHost(element);
+            mountNode(element);
         }
 
         mutationObserver.observe(document.body, {
