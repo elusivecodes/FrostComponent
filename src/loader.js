@@ -54,6 +54,10 @@ function define(tagName, html, templateUrl) {
         throw new Error('Components must render a single element');
     }
 
+    if (elements[0].matches('slot')) {
+        throw new Error('Components cannot render a root slot element');
+    }
+
     const sourceScripts = container.querySelectorAll(':scope > script[src]');
     const connectedScripts = container.querySelectorAll(':scope > script[connected]:not([src])');
     const initializedScripts = container.querySelectorAll(':scope > script:not([connected], [src])');

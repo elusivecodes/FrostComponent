@@ -49,6 +49,8 @@ The browser bundle exposes `globalThis.Component`. Call `Component.bootstrap(...
 
 FrostComponent uses the `Function` constructor for full binding expressions, non-method event handlers, JavaScript-valued host attributes, and inline scripts in autoloaded components. Using these features requires `'unsafe-eval'` in the CSP `script-src` directive; a nonce or hash does not replace this permission.
 
+Where supported, dynamically compiled code uses stable `frost-component://` source URLs so bindings, event handlers, state attributes, and inline component scripts are easier to identify in stack traces and browser developer tools.
+
 ## Quick Start
 
 ### HTML autoloaded components
@@ -125,7 +127,7 @@ FrostComponent revolves around a small base class and declarative template bindi
 - Root `<slot>` elements are not allowed
 - `this.state` is a `StateStore` from [`@fr0st/state`](https://www.npmjs.com/package/@fr0st/state)
 - Non-`x:` host attributes other than `slot` become initial state and are removed from the host
-- `x:key` exposes keyed descendants directly on the component instance
+- `x:key` exposes keyed descendants directly on the component instance; keys must be unique and cannot conflict with existing component properties
 
 Host attributes are parsed as JavaScript when possible and otherwise kept as strings.
 
@@ -193,7 +195,9 @@ Use `:attr` for dynamic attributes:
 
 Object literals need braces so they are parsed as JavaScript instead of as a bare state lookup.
 
-You can also bind `class` and `style` from state keys such as `:class="classes"` or `:style="styles"`. `class` bindings support strings, arrays, and object maps. `style` bindings support strings and object maps.
+You can also bind `class` and `style` from state keys such as `:class="classes"` or `:style="styles"`. `class` bindings support strings, arrays, and object maps. `style` bindings support strings and object maps, with camel-cased properties, dashed properties, and custom properties such as `--accent`.
+
+Standard boolean attributes such as `disabled` are present with an empty value for `true` and removed for `false`. Other attributes preserve boolean values as the strings `"true"` and `"false"`.
 
 When the target is another component, `:state` merges object values into the child state, and other bound attributes become child state keys.
 
@@ -327,22 +331,24 @@ Slots work in both light DOM and shadow DOM components.
 </div>
 ```
 
-In light DOM components, FrostComponent replaces descendant `<slot>` elements with markers and moves matching children into place. In shadow mode, assigned children continue to behave like native slotted content.
+In light DOM components, FrostComponent replaces descendant `<slot>` elements with markers and moves matching children into place. Fallback content remains until the first node is assigned. In shadow mode, assigned children continue to behave like native slotted content.
 
 ## HTML Template Components
 
 Autoloaded HTML components can include one render root plus optional top-level scripts and styles. These scripts and styles must be direct children of the template, not nested inside the render root.
 
+Relative URLs on top-level external scripts and stylesheet links are resolved against the final fetched template URL, including redirects. URLs inside rendered markup are left as authored and follow the browser's normal document-relative resolution.
+
 ### Scripts
 
-- `<script src="...">`: external scripts loaded once per source
+- `<script src="...">`: external scripts loaded once per resolved URL, in template order, before the component is defined
 - `<script connected>`: runs on each connection
 - `<script>`: runs during `initialize()`
 
 ### Styles
 
-- Light DOM templates append top-level `<style>` and `<link rel="stylesheet">` tags to `document.head`
-- Shadow templates clone those styles into each shadow root
+- Light DOM templates append top-level `<style>` and non-empty `<link rel="stylesheet">` tags to `document.head`; linked stylesheets are loaded once per resolved URL and awaited before the component is defined
+- Shadow templates clone style blocks and stylesheet links with non-empty `href` values into each shadow root
 
 ### Shadow mode
 
@@ -503,6 +509,8 @@ npm test
 npm run js-lint
 npm run build
 ```
+
+`npm test` runs the Playwright suite in Chromium, Firefox, and WebKit.
 
 ## License
 

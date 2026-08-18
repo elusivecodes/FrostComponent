@@ -58,6 +58,31 @@ test.describe('Component autoload', () => {
         await expect(page.locator('[x\\:component="x-empty"]')).toHaveCount(0);
     });
 
+    test('throws when autoloaded template renders a root slot element', async ({ page }) => {
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-slot')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: '<slot></slot>',
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        const errorPromise = page.waitForEvent('pageerror');
+        await page.evaluate(() => {
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-slot></x-slot>';
+        });
+        const error = await errorPromise;
+        expect(error.message).toContain('Components cannot render a root slot element');
+        await expect(page.locator('[x\\:component="x-slot"]')).toHaveCount(0);
+    });
+
     test('retries autoload after a failed fetch', async ({ page }) => {
         let requests = 0;
 
