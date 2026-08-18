@@ -1,5 +1,5 @@
 import { evaluator } from './evaluator.js';
-import { findPropertyOwner, isComponent, isEmpty, isPlainObject, skipSubtree } from './helpers.js';
+import { createFunction, findPropertyOwner, isComponent, isEmpty, isPlainObject, skipSubtree } from './helpers.js';
 import { booleanAttributes, setInitialState } from './vars.js';
 
 /**
@@ -64,7 +64,7 @@ function bindAttribute(component, element, name, value) {
     }
 
     const attribute = name.slice(1);
-    const callback = evaluator(component, value);
+    const callback = evaluator(component, value, ['attribute', attribute]);
 
     if (isComponent(element.tagName)) {
         component.effect(() => {
@@ -192,9 +192,18 @@ function bindEvent(component, element, name, value) {
     })) {
         callback = component[handlerValue].bind(component);
     } else if (handlerValue.startsWith('{') && handlerValue.endsWith('}')) {
-        callback = Function.constructor('event', handlerValue.slice(1, -1)).bind(component);
+        callback = createFunction(
+            component,
+            ['event', eventName],
+            handlerValue.slice(1, -1),
+            ['event'],
+        ).bind(component);
     } else {
-        const factory = Function.constructor(`"use strict"; return (${handlerValue})`);
+        const factory = createFunction(
+            component,
+            ['event', eventName],
+            `"use strict"; return (${handlerValue})`,
+        );
 
         try {
             const probe = factory.call(Object.freeze({}));
@@ -365,7 +374,7 @@ function bindProperty(component, element, name, value) {
         throw new Error(`Property binding ".${property}" only supports custom properties`);
     }
 
-    const callback = evaluator(component, value);
+    const callback = evaluator(component, value, ['property', property]);
 
     component.effect(() => {
         const result = callback();
@@ -454,7 +463,7 @@ function bindText(component, node) {
         const inner = raw.slice(exprStart, end).trim();
 
         if (inner) {
-            parts.push(evaluator(component, inner));
+            parts.push(evaluator(component, inner, ['text']));
         }
 
         index = end + 1;

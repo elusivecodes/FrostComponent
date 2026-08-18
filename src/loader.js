@@ -1,5 +1,5 @@
 import Component from './component.js';
-import { isComponent } from './helpers.js';
+import { createFunction, isComponent } from './helpers.js';
 import { loaded, loadedScripts, loadedStylesheets, setShadowAssets } from './vars.js';
 
 /**
@@ -118,16 +118,24 @@ function define(tagName, html) {
             initialize() {
                 super.initialize();
 
-                for (const script of initializedScripts) {
-                    Function.constructor(script.innerText).call(this);
+                for (const [index, script] of initializedScripts.entries()) {
+                    createFunction(
+                        tagName,
+                        ['script', `initialized-${index}`],
+                        script.innerText,
+                    ).call(this);
                 }
             }
 
             onConnected() {
                 super.onConnected();
 
-                for (const script of connectedScripts) {
-                    Function.constructor(script.innerText).call(this);
+                for (const [index, script] of connectedScripts.entries()) {
+                    createFunction(
+                        tagName,
+                        ['script', `connected-${index}`],
+                        script.innerText,
+                    ).call(this);
                 }
             }
 

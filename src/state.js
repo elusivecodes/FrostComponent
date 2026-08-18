@@ -1,4 +1,4 @@
-import { isPlainObject } from './helpers.js';
+import { createFunction, isPlainObject } from './helpers.js';
 import { takeInitialState } from './vars.js';
 
 /**
@@ -13,7 +13,11 @@ export function parseState(component) {
 
         let value;
         try {
-            value = Function.constructor(`return ${attr.value};`).call(component);
+            value = createFunction(
+                component,
+                ['state', attr.name],
+                `return ${attr.value};`,
+            ).call(component);
         } catch {
             value = attr.value;
         }

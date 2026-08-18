@@ -157,7 +157,7 @@ export function processConditionals(component, conditionals) {
         for (const { condition, element, end } of cases) {
             const data = {
                 attached: false,
-                callback: evaluator(component, condition),
+                callback: evaluator(component, condition, ['conditional']),
                 element,
                 end,
             };
@@ -206,7 +206,7 @@ export function processConditionals(component, conditionals) {
 export function processLoops(component, loops) {
     for (const { iterable, identifier, element, end } of loops) {
         let loopRecords = new Map();
-        const callback = evaluator(component, iterable, []);
+        const callback = evaluator(component, iterable, ['loop'], []);
         component.effect(() => {
             const items = callback();
 

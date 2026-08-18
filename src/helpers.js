@@ -171,3 +171,54 @@ export function skipSubtree(walker) {
 
     return null;
 };
+
+/**
+ * Creates a deterministic 53-bit hash for source text.
+ * @param {string} source The source text to hash.
+ * @returns {string} The hash encoded in base 36.
+ */
+function hashSource(source) {
+    let hash1 = 0xDEADBEEF;
+    let hash2 = 0x41C6CE57;
+
+    for (let i = 0; i < source.length; i++) {
+        const char = source.charCodeAt(i);
+
+        hash1 = Math.imul(hash1 ^ char, 2654435761);
+        hash2 = Math.imul(hash2 ^ char, 1597334677);
+    }
+
+    hash1 = Math.imul(hash1 ^ (hash1 >>> 16), 2246822507) ^
+        Math.imul(hash2 ^ (hash2 >>> 13), 3266489909);
+    hash2 = Math.imul(hash2 ^ (hash2 >>> 16), 2246822507) ^
+        Math.imul(hash1 ^ (hash1 >>> 13), 3266489909);
+
+    return (
+        4294967296 * (hash2 & 0x1FFFFF) +
+        (hash1 >>> 0)
+    ).toString(36);
+};
+
+/**
+ * Creates a dynamically compiled function with a stable virtual source URL.
+ * The URL hash is derived from the function parameters and body.
+ * @param {HTMLElement|string} component The component instance or tag name that owns the function.
+ * @param {string[]} path The source path segments describing where the function is used.
+ * @param {string} body The function body.
+ * @param {string[]} [parameters=[]] The function parameter names.
+ * @returns {Function} The compiled function.
+ */
+export function createFunction(component, path, body, parameters = []) {
+    const source = [...parameters, body].join('\0');
+    const tagName = typeof component === 'string' ?
+        component :
+        component.localName;
+    const sourcePath = [tagName, ...path, `${hashSource(source)}.js`]
+        .map(encodeURIComponent)
+        .join('/');
+
+    return Function.constructor(
+        ...parameters,
+        `${body}\n//# sourceURL=frost-component://${sourcePath}\n`,
+    );
+};

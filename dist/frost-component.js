@@ -478,35 +478,6 @@
         }
     }
 
-    const textarea = document.createElement('textarea');
-
-    /**
-     * Builds an evaluator for a binding expression.
-     * @param {Component} component The component that owns the expression.
-     * @param {string} expression The expression string to evaluate.
-     * @param {*} [defaultValue] The fallback value to use when resolving a state path.
-     * @returns {() => *} A callback that resolves the current expression value.
-     */
-    function evaluator(component, expression, defaultValue) {
-        textarea.innerHTML = expression;
-        expression = textarea.value.trim();
-
-        if (!expression) {
-            return () => null;
-        }
-
-        if (
-            (expression.startsWith('{') && expression.endsWith('}')) ||
-            (expression.startsWith('({') && expression.endsWith('})'))
-        ) {
-            expression = expression.slice(1, -1).trim();
-
-            return Function.constructor(`return ${expression};`).bind(component);
-        }
-
-        return () => component.state(expression, defaultValue).value;
-    }
-
     /**
      * Finds child components rendered within an element subtree.
      * @param {Component} component The root component.
@@ -671,6 +642,85 @@
         }
 
         return null;
+    }
+    /**
+     * Creates a deterministic 53-bit hash for source text.
+     * @param {string} source The source text to hash.
+     * @returns {string} The hash encoded in base 36.
+     */
+    function hashSource(source) {
+        let hash1 = 0xDEADBEEF;
+        let hash2 = 0x41C6CE57;
+
+        for (let i = 0; i < source.length; i++) {
+            const char = source.charCodeAt(i);
+
+            hash1 = Math.imul(hash1 ^ char, 2654435761);
+            hash2 = Math.imul(hash2 ^ char, 1597334677);
+        }
+
+        hash1 = Math.imul(hash1 ^ (hash1 >>> 16), 2246822507) ^
+            Math.imul(hash2 ^ (hash2 >>> 13), 3266489909);
+        hash2 = Math.imul(hash2 ^ (hash2 >>> 16), 2246822507) ^
+            Math.imul(hash1 ^ (hash1 >>> 13), 3266489909);
+
+        return (
+            4294967296 * (hash2 & 0x1FFFFF) +
+            (hash1 >>> 0)
+        ).toString(36);
+    }
+    /**
+     * Creates a dynamically compiled function with a stable virtual source URL.
+     * The URL hash is derived from the function parameters and body.
+     * @param {HTMLElement|string} component The component instance or tag name that owns the function.
+     * @param {string[]} path The source path segments describing where the function is used.
+     * @param {string} body The function body.
+     * @param {string[]} [parameters=[]] The function parameter names.
+     * @returns {Function} The compiled function.
+     */
+    function createFunction(component, path, body, parameters = []) {
+        const source = [...parameters, body].join('\0');
+        const tagName = typeof component === 'string' ?
+            component :
+            component.localName;
+        const sourcePath = [tagName, ...path, `${hashSource(source)}.js`]
+            .map(encodeURIComponent)
+            .join('/');
+
+        return Function.constructor(
+            ...parameters,
+            `${body}\n//# sourceURL=frost-component://${sourcePath}\n`,
+        );
+    }
+
+    const textarea = document.createElement('textarea');
+
+    /**
+     * Builds an evaluator for a binding expression.
+     * @param {Component} component The component that owns the expression.
+     * @param {string} expression The expression string to evaluate.
+     * @param {string[]} [source=['expression']] The virtual source path segments.
+     * @param {*} [defaultValue] The fallback value to use when resolving a state path.
+     * @returns {() => *} A callback that resolves the current expression value.
+     */
+    function evaluator(component, expression, source = ['expression'], defaultValue) {
+        textarea.innerHTML = expression;
+        expression = textarea.value.trim();
+
+        if (!expression) {
+            return () => null;
+        }
+
+        if (
+            (expression.startsWith('{') && expression.endsWith('}')) ||
+            (expression.startsWith('({') && expression.endsWith('})'))
+        ) {
+            expression = expression.slice(1, -1).trim();
+
+            return createFunction(component, source, `return ${expression};`).bind(component);
+        }
+
+        return () => component.state(expression, defaultValue).value;
     }
 
     /**
@@ -847,7 +897,7 @@
         }
 
         const attribute = name.slice(1);
-        const callback = evaluator(component, value);
+        const callback = evaluator(component, value, ['attribute', attribute]);
 
         if (isComponent(element.tagName)) {
             component.effect(() => {
@@ -974,9 +1024,18 @@
         })) {
             callback = component[handlerValue].bind(component);
         } else if (handlerValue.startsWith('{') && handlerValue.endsWith('}')) {
-            callback = Function.constructor('event', handlerValue.slice(1, -1)).bind(component);
+            callback = createFunction(
+                component,
+                ['event', eventName],
+                handlerValue.slice(1, -1),
+                ['event'],
+            ).bind(component);
         } else {
-            const factory = Function.constructor(`"use strict"; return (${handlerValue})`);
+            const factory = createFunction(
+                component,
+                ['event', eventName],
+                `"use strict"; return (${handlerValue})`,
+            );
 
             try {
                 const probe = factory.call(Object.freeze({}));
@@ -1145,7 +1204,7 @@
             throw new Error(`Property binding ".${property}" only supports custom properties`);
         }
 
-        const callback = evaluator(component, value);
+        const callback = evaluator(component, value, ['property', property]);
 
         component.effect(() => {
             const result = callback();
@@ -1233,7 +1292,7 @@
             const inner = raw.slice(exprStart, end).trim();
 
             if (inner) {
-                parts.push(evaluator(component, inner));
+                parts.push(evaluator(component, inner, ['text']));
             }
 
             index = end + 1;
@@ -1401,7 +1460,7 @@
             for (const { condition, element, end } of cases) {
                 const data = {
                     attached: false,
-                    callback: evaluator(component, condition),
+                    callback: evaluator(component, condition, ['conditional']),
                     element,
                     end,
                 };
@@ -1449,7 +1508,7 @@
     function processLoops(component, loops) {
         for (const { iterable, identifier, element, end } of loops) {
             let loopRecords = new Map();
-            const callback = evaluator(component, iterable, []);
+            const callback = evaluator(component, iterable, ['loop'], []);
             component.effect(() => {
                 const items = callback();
 
@@ -1654,7 +1713,11 @@
 
             let value;
             try {
-                value = Function.constructor(`return ${attr.value};`).call(component);
+                value = createFunction(
+                    component,
+                    ['state', attr.name],
+                    `return ${attr.value};`,
+                ).call(component);
             } catch {
                 value = attr.value;
             }
@@ -2272,16 +2335,24 @@
                 initialize() {
                     super.initialize();
 
-                    for (const script of initializedScripts) {
-                        Function.constructor(script.innerText).call(this);
+                    for (const [index, script] of initializedScripts.entries()) {
+                        createFunction(
+                            tagName,
+                            ['script', `initialized-${index}`],
+                            script.innerText,
+                        ).call(this);
                     }
                 }
 
                 onConnected() {
                     super.onConnected();
 
-                    for (const script of connectedScripts) {
-                        Function.constructor(script.innerText).call(this);
+                    for (const [index, script] of connectedScripts.entries()) {
+                        createFunction(
+                            tagName,
+                            ['script', `connected-${index}`],
+                            script.innerText,
+                        ).call(this);
                     }
                 }
 
