@@ -29,7 +29,9 @@ test.describe('Component input bindings', () => {
         await page.setContent('<x-component name="alice"></x-component>');
 
         const input = page.locator('[x\\:component="x-component"] #name');
-        await input.fill('bob');
+        await input.evaluate((element) => {
+            element.value = 'bob';
+        });
         await input.dispatchEvent('change');
 
         const name = await page.evaluate(() => {
@@ -148,6 +150,26 @@ test.describe('Component input bindings', () => {
         expect(items).toEqual(['a', 'b']);
     });
 
+    test('updates select multiple UI when bound state changes', async ({ page }) => {
+        await defineComponent(
+            page,
+            'x-component',
+            'XComponent',
+            '<div><select id="multi" multiple x:bind="items"><option value="a">a</option><option value="b">b</option></select></div>',
+        );
+        await page.setContent('<x-component items="[\'a\']"></x-component>');
+
+        const multi = page.locator('[x\\:component="x-component"] #multi');
+        await expect(multi).toHaveValues(['a']);
+
+        await page.evaluate(() => {
+            const root = document.querySelector('[x\\:component="x-component"]');
+            root.component.state.items = ['a', 'b'];
+        });
+
+        await expect(multi).toHaveValues(['a', 'b']);
+    });
+
     test('binds select single values with x:bind', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div><select id="sel" x:bind="choice"><option value="a">a</option><option value="b">b</option></select></div>');
         await page.setContent('<x-component choice="b"></x-component>');
@@ -184,26 +206,6 @@ test.describe('Component input bindings', () => {
         });
 
         await expect(single).toHaveValue('b');
-    });
-
-    test('updates select multiple UI when bound state changes', async ({ page }) => {
-        await defineComponent(
-            page,
-            'x-component',
-            'XComponent',
-            '<div><select id="multi" multiple x:bind="items"><option value="a">a</option><option value="b">b</option></select></div>',
-        );
-        await page.setContent('<x-component items="[\'a\']"></x-component>');
-
-        const multi = page.locator('[x\\:component="x-component"] #multi');
-        await expect(multi).toHaveValues(['a']);
-
-        await page.evaluate(() => {
-            const root = document.querySelector('[x\\:component="x-component"]');
-            root.component.state.items = ['a', 'b'];
-        });
-
-        await expect(multi).toHaveValues(['a', 'b']);
     });
 
     test('binds radio inputs with x:bind', async ({ page }) => {

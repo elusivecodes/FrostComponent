@@ -70,7 +70,6 @@ test.describe('Shadow mode', () => {
         });
     });
 
-
     test('waits for mixed shadow and light children before parent is loaded', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
             const url = route.request().url();
@@ -159,7 +158,6 @@ test.describe('Shadow mode', () => {
             return parent && parent.loaded === true;
         });
     });
-
 
     test('bubbles events from closed shadow children to the host', async ({ page }) => {
         await page.route('**/components/*', async (route) => {

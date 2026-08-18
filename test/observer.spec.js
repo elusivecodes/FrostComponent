@@ -89,72 +89,6 @@ test.describe('Component observers', () => {
         await page.waitForFunction(() => window._childDismounted === true);
     });
 
-    test('flushes pending effects after visible event', async ({ page }) => {
-        await defineComponent(page, 'x-component', 'XComponent', '<div></div>');
-        await page.setContent('<x-component></x-component>');
-
-        await page.waitForFunction(() => {
-            const root = document.querySelector('[x\\:component="x-component"]');
-            return root &&
-                root.component &&
-                root.component.initialized === true &&
-                root.component.mounted === true;
-        });
-
-        await page.evaluate(async () => {
-            const root = document.querySelector('[x\\:component="x-component"]');
-            const component = root.component;
-            component.dispatchEvent(new Event('invisible'));
-        });
-
-        await page.waitForFunction(() => {
-            const root = document.querySelector('[x\\:component="x-component"]');
-            const component = root.component;
-            return !component.visible;
-        });
-
-        const stateBeforeVisible = await page.evaluate(() => {
-            const root = document.querySelector('[x\\:component="x-component"]');
-            const component = root.component;
-
-            component.state.count = 0;
-            component._runs = 0;
-            component.effect(() => {
-                void component.state.count;
-                component._runs++;
-            });
-            component.state.count = 1;
-
-            return {
-                runs: component._runs,
-            };
-        });
-
-        expect(stateBeforeVisible.runs).toBe(0);
-
-        await page.evaluate(async () => {
-            const root = document.querySelector('[x\\:component="x-component"]');
-            const component = root.component;
-            component.dispatchEvent(new Event('visible'));
-        });
-
-        await page.waitForFunction(() => {
-            const root = document.querySelector('[x\\:component="x-component"]');
-            const component = root.component;
-            return component.visible;
-        });
-
-        const stateAfterVisible = await page.evaluate(async () => {
-            const root = document.querySelector('[x\\:component="x-component"]');
-            const component = root.component;
-            return {
-                runs: component._runs,
-            };
-        });
-
-        expect(stateAfterVisible.runs).toBe(1);
-    });
-
     test('autoloads existing elements when bootstrap is called with baseUrl', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
             const url = route.request().url();
@@ -564,5 +498,71 @@ test.describe('Component observers', () => {
         });
 
         expect(result).toEqual(['visible', 'invisible']);
+    });
+
+    test('flushes pending effects after visible event', async ({ page }) => {
+        await defineComponent(page, 'x-component', 'XComponent', '<div></div>');
+        await page.setContent('<x-component></x-component>');
+
+        await page.waitForFunction(() => {
+            const root = document.querySelector('[x\\:component="x-component"]');
+            return root &&
+                root.component &&
+                root.component.initialized === true &&
+                root.component.mounted === true;
+        });
+
+        await page.evaluate(() => {
+            const root = document.querySelector('[x\\:component="x-component"]');
+            const component = root.component;
+            component.dispatchEvent(new Event('invisible'));
+        });
+
+        await page.waitForFunction(() => {
+            const root = document.querySelector('[x\\:component="x-component"]');
+            const component = root.component;
+            return !component.visible;
+        });
+
+        const stateBeforeVisible = await page.evaluate(() => {
+            const root = document.querySelector('[x\\:component="x-component"]');
+            const component = root.component;
+
+            component.state.count = 0;
+            component._runs = 0;
+            component.effect(() => {
+                void component.state.count;
+                component._runs++;
+            });
+            component.state.count = 1;
+
+            return {
+                runs: component._runs,
+            };
+        });
+
+        expect(stateBeforeVisible.runs).toBe(0);
+
+        await page.evaluate(() => {
+            const root = document.querySelector('[x\\:component="x-component"]');
+            const component = root.component;
+            component.dispatchEvent(new Event('visible'));
+        });
+
+        await page.waitForFunction(() => {
+            const root = document.querySelector('[x\\:component="x-component"]');
+            const component = root.component;
+            return component.visible;
+        });
+
+        const stateAfterVisible = await page.evaluate(() => {
+            const root = document.querySelector('[x\\:component="x-component"]');
+            const component = root.component;
+            return {
+                runs: component._runs,
+            };
+        });
+
+        expect(stateAfterVisible.runs).toBe(1);
     });
 });

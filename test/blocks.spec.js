@@ -373,16 +373,6 @@ test.describe('Component blocks', () => {
         expect(error.message).toContain('Conditional elements cannot be looped');
     });
 
-    test('throws when x:each items are missing identifiers', async ({ page }) => {
-        await defineComponent(page, 'x-child', 'XChild', '<div class="item"></div>');
-        await defineComponent(page, 'x-parent', 'XParent', '<div><x-child x:each="items" x:id="id"></x-child></div>');
-        await page.setContent('<x-parent items="[]"></x-parent>');
-        const errorPromise = page.waitForEvent('pageerror');
-        await updateState(page, 'x-parent', { items: [{ name: 'x' }] });
-        const error = await errorPromise;
-        expect(error.message).toContain('must have a "id" property');
-    });
-
     test('throws when x:each is used on a non-component element', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div><span x:each="items" x:id="id"></span></div>');
         const errorPromise = page.waitForEvent('pageerror');
@@ -398,6 +388,16 @@ test.describe('Component blocks', () => {
         await page.setContent('<x-parent items="{ id: 1 }"></x-parent>');
         const error = await errorPromise;
         expect(error.message).toContain('Iterable "items" must be an array');
+    });
+
+    test('throws when x:each items are missing identifiers', async ({ page }) => {
+        await defineComponent(page, 'x-child', 'XChild', '<div class="item"></div>');
+        await defineComponent(page, 'x-parent', 'XParent', '<div><x-child x:each="items" x:id="id"></x-child></div>');
+        await page.setContent('<x-parent items="[]"></x-parent>');
+        const errorPromise = page.waitForEvent('pageerror');
+        await updateState(page, 'x-parent', { items: [{ name: 'x' }] });
+        const error = await errorPromise;
+        expect(error.message).toContain('must have a "id" property');
     });
 
     test('throws when x:each items have duplicate identifiers', async ({ page }) => {

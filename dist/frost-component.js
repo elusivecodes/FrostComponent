@@ -478,6 +478,8 @@
         }
     }
 
+    /** @typedef {import('./component.js').default} Component */
+
     /**
      * Finds child components rendered within an element subtree.
      * @param {Component} component The root component.
@@ -587,7 +589,7 @@
     }
     /**
      * Finds the object in a prototype chain that owns a property.
-     * @param {object} target The object to inspect.
+     * @param {object|null|undefined} target The object to inspect.
      * @param {string} property The property name to resolve.
      * @param {object} [options] The lookup options.
      * @param {boolean} [options.includeSelf=true] Whether to start on the target itself.
@@ -693,6 +695,8 @@
         );
     }
 
+    /** @typedef {import('./component.js').default} Component */
+
     const textarea = document.createElement('textarea');
 
     /**
@@ -760,8 +764,13 @@
         'shadowrootserializable',
     ]);
 
+    /** @type {Object<string, boolean>} */
     const loaded = {};
+
+    /** @type {Object<string, Promise<void>>} */
     const loadedScripts = {};
+
+    /** @type {Object<string, Promise<void>>} */
     const loadedStylesheets = {};
 
     const initialStates = new WeakMap();
@@ -828,13 +837,15 @@
      * Sets the cached shadow assets for a component class.
      * @param {typeof import('./component.js').default} ComponentClass The component constructor.
      * @param {object} [options] The shadow asset options.
-     * @param {HTMLStyleElement[]} [options.styleBlocks=[]] The shadow style blocks.
-     * @param {HTMLLinkElement[]} [options.stylesheets=[]] The shadow stylesheet links.
+     * @param {Iterable<HTMLStyleElement>} [options.styleBlocks=[]] The shadow style blocks.
+     * @param {Iterable<HTMLLinkElement>} [options.stylesheets=[]] The shadow stylesheet links.
      */
     function setShadowAssets(ComponentClass, { styleBlocks = [], stylesheets = [] } = {}) {
         shadowStyleBlocks.set(ComponentClass, [...styleBlocks]);
         shadowStylesheets.set(ComponentClass, [...stylesheets]);
     }
+
+    /** @typedef {import('./component.js').default} Component */
 
     /**
      * Binds an element subtree to a component.
@@ -885,7 +896,7 @@
     /**
      * Binds a dynamic attribute to a component.
      * @param {Component} component The component that owns the binding.
-     * @param {HTMLElement} element The target element.
+     * @param {Element} element The target element.
      * @param {string} name The bound attribute name (including the ":" prefix).
      * @param {string} value The attribute expression string.
      */
@@ -1005,7 +1016,7 @@
     /**
      * Binds an event handler to a component.
      * @param {Component} component The component that owns the handler.
-     * @param {HTMLElement} element The target element.
+     * @param {Element} element The target element.
      * @param {string} name The event attribute name (including the "@" prefix).
      * @param {string} value The handler attribute value.
      */
@@ -1179,7 +1190,7 @@
     /**
      * Binds a component expression to a DOM property.
      * @param {Component} component The component that owns the binding.
-     * @param {HTMLElement} element The target element.
+     * @param {Element} element The target element.
      * @param {string} name The bound property name (including the "." prefix).
      * @param {string} value The property expression string.
      */
@@ -1309,6 +1320,8 @@
         });
     }
 
+    /** @typedef {import('./component.js').default} Component */
+
     /**
      * @typedef {object} ConditionalCase
      * @property {string} condition The condition expression for the case.
@@ -1321,7 +1334,7 @@
      * @typedef {object} LoopBlock
      * @property {string} iterable The expression that resolves to the loop items.
      * @property {string} identifier The property name used as the item key.
-     * @property {Component} element The component template cloned for each item.
+     * @property {Element} element The component template cloned for each item.
      * @property {Comment} start The start marker for the loop block.
      * @property {Comment} end The end marker for the loop block.
      */
@@ -1621,15 +1634,20 @@
         return result;
     }
 
+    /** @typedef {import('./component.js').default} Component */
+
+    /**
+     * @typedef {object} SlotDefinition
+     * @property {Comment} start The start marker for the slot.
+     * @property {Comment} end The end marker for the slot.
+     * @property {(node: Node) => void} assign Assigns a node to the slot.
+     * @property {() => Node[]} assigned Gets the nodes assigned to the slot.
+     */
+
     /**
      * Replaces descendant `<slot>` elements with comment markers.
      * @param {Element} element The element to scan for slots.
-     * @returns {Object.<string, {
-     *   start: Comment,
-     *   end: Comment,
-     *   assign: function(Node): void,
-     *   assigned: function(): Node[]
-     * }>} The slot map keyed by slot name.
+     * @returns {Object<string, SlotDefinition>} The slot map keyed by slot name.
      */
     function parseSlots(element) {
         const slotMarkers = [...element.querySelectorAll('slot')]
@@ -1701,6 +1719,8 @@
             slot.assign(element);
         }}
 
+    /** @typedef {import('./component.js').default} Component */
+
     /**
      * Parses component state from non-framework attributes and removes them from the host.
      * @param {Component} component The component to populate with state.
@@ -1741,6 +1761,7 @@
      * Base custom element class for Frost components.
      */
     class Component extends HTMLElement {
+        /** @type {'open'|'closed'|null} */
         static shadowMode = null;
 
         #connected = false;
@@ -1800,6 +1821,10 @@
                 const styleBlocks = getShadowStyleBlocks(this.constructor);
 
                 for (const stylesheet of stylesheets) {
+                    if (!stylesheet.getAttribute('href')?.trim()) {
+                        continue;
+                    }
+
                     fragment.appendChild(stylesheet.cloneNode(true));
                 }
 
@@ -2086,6 +2111,7 @@
         /**
          * Registers a promise to defer the loaded event.
          * @param {Promise<*>} promise The promise to await before marking the component as loaded.
+         * @throws {Error} When called after the component has loaded.
          */
         deferLoad(promise) {
             if (this.loaded) {
@@ -2141,12 +2167,7 @@
         /**
          * Gets a slot definition.
          * @param {string} [name=''] The slot name.
-         * @returns {{
-         *   start: Comment,
-         *   end: Comment,
-         *   assign: function(Node): void,
-         *   assigned: function(): Node[]
-         * }|undefined} The slot definition, or `undefined` if the slot is missing.
+         * @returns {import('./slots.js').SlotDefinition|undefined} The slot definition, or `undefined` if the slot is missing.
          */
         getSlot(name = '') {
             return this.#slots[name];
@@ -2251,9 +2272,10 @@
      * Defines a component class from its HTML template.
      * @param {string} tagName The custom element tag name.
      * @param {string} html The HTML template string.
+     * @param {string} templateUrl The fetched template URL.
      * @returns {Promise<void>} A promise that resolves once the component is defined.
      */
-    function define(tagName, html) {
+    function define(tagName, html, templateUrl) {
         if (!isComponent(tagName)) {
             throw new Error('Components must begin with "x-"');
         }
@@ -2279,50 +2301,71 @@
         const styleBlocks = container.querySelectorAll(':scope > style');
 
         // load scripts
-        const promises = [...sourceScripts]
-            .map((node) => {
-                const src = node.getAttribute('src');
+        const promises = [];
 
-                if (!(src in loadedScripts)) {
-                    const script = document.createElement('script');
+        for (const sourceScript of sourceScripts) {
+            const source = sourceScript.getAttribute('src')?.trim();
 
-                    script.setAttribute('src', src);
-                    script.setAttribute('type', 'text/javascript');
-                    script.setAttribute('async', 'false');
+            if (!source) {
+                continue;
+            }
 
-                    loadedScripts[src] = new Promise((resolve, reject) => {
-                        script.onload = resolve;
-                        script.onerror = () => {
-                            script.remove();
-                            reject(new Error(`Failed to load script "${src}"`));
-                        };
-                    });
+            const src = new URL(source, templateUrl).href;
 
-                    loadedScripts[src] = loadedScripts[src].catch((error) => {
+            if (!(src in loadedScripts)) {
+                const script = document.createElement('script');
+
+                script.setAttribute('src', src);
+                script.setAttribute('type', 'text/javascript');
+                script.async = false;
+
+                loadedScripts[src] = new Promise((resolve, reject) => {
+                    script.onload = () => resolve();
+                    script.onerror = () => {
+                        script.remove();
                         delete loadedScripts[src];
-                        throw error;
-                    });
+                        reject(new Error(`Failed to load script "${src}"`));
+                    };
+                });
 
-                    document.head.appendChild(script);
-                }
+                document.head.appendChild(script);
+            }
 
-                return loadedScripts[src];
-            });
+            promises.push(loadedScripts[src]);
+        }
 
         // load stylesheets/style blocks
-        if (componentShadowMode) ; else {
-            for (const stylesheet of stylesheets) {
-                const href = stylesheet.getAttribute('href');
+        for (const stylesheet of stylesheets) {
+            const source = stylesheet.getAttribute('href')?.trim();
 
-                if (loadedStylesheets[href]) {
-                    continue;
-                }
+            if (!source) {
+                continue;
+            }
 
-                loadedStylesheets[href] = true;
+            const href = new URL(source, templateUrl).href;
+            stylesheet.setAttribute('href', href);
+
+            if (componentShadowMode) {
+                continue;
+            }
+
+            if (!(href in loadedStylesheets)) {
+                loadedStylesheets[href] = new Promise((resolve, reject) => {
+                    stylesheet.onload = () => resolve();
+                    stylesheet.onerror = () => {
+                        stylesheet.remove();
+                        delete loadedStylesheets[href];
+                        reject(new Error(`Failed to load stylesheet "${href}"`));
+                    };
+                });
 
                 document.head.appendChild(stylesheet);
             }
 
+            promises.push(loadedStylesheets[href]);
+        }
+
+        if (!componentShadowMode) {
             for (const styleBlock of styleBlocks) {
                 document.head.appendChild(styleBlock);
             }
@@ -2402,15 +2445,13 @@
             const url = `${baseUrl}/${tagName}${extension ? '.' + extension : ''}`;
 
             fetch(url)
-                .then((response) => {
+                .then(async (response) => {
                     if (!response.ok) {
                         throw new Error(`Failed to load component "${tagName}" (${response.status})`);
                     }
 
-                    return response.text();
-                })
-                .then((content) => {
-                    return define(tagName, content);
+                    const content = await response.text();
+                    return define(tagName, content, response.url || url);
                 })
                 .catch((error) => {
                     delete loaded[tagName];
@@ -2482,7 +2523,7 @@
 
     /**
      * Loads undefined component elements in a node collection when autoload is enabled.
-     * @param {Iterable<Node>} nodes The nodes to scan for components.
+     * @param {NodeList|Node[]} nodes The nodes to scan for components.
      */
     const loadComponents = (nodes) => {
         if (!currentBaseUrl || !nodes.length) {
@@ -2593,13 +2634,29 @@
         const elements = document.body.querySelectorAll(':not(script, link[rel="stylesheet"], style)');
 
         for (const script of document.querySelectorAll('script[src]')) {
-            const src = script.getAttribute('src');
+            if (!script.getAttribute('src')?.trim()) {
+                continue;
+            }
+
+            const src = script.src;
+            if (src in loadedScripts) {
+                continue;
+            }
+
             loadedScripts[src] = Promise.resolve();
         }
 
         for (const stylesheet of document.querySelectorAll('link[rel="stylesheet"]')) {
-            const href = stylesheet.getAttribute('href');
-            loadedStylesheets[href] = true;
+            if (!stylesheet.getAttribute('href')?.trim()) {
+                continue;
+            }
+
+            const href = stylesheet.href;
+            if (href in loadedStylesheets) {
+                continue;
+            }
+
+            loadedStylesheets[href] = Promise.resolve();
         }
 
         if (!intersectionObserver) {

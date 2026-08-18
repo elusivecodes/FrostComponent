@@ -47,7 +47,6 @@ test.describe('Shadow mode', () => {
             return parent && parent.loaded;
         });
 
-
         const childText = await page.evaluate(() => {
             const parent = document.querySelector('x-parent');
             const child = parent?.renderRoot?.querySelector('x-child');
@@ -120,7 +119,6 @@ test.describe('Shadow mode', () => {
 
         expect(childText).toBe('late');
     });
-
 
     test('autoloads components added to a shadow root after mount', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
@@ -236,7 +234,6 @@ test.describe('Shadow mode', () => {
 
         expect(childText).toBe('child');
     });
-
 
     test('upgrades nested components inside closed shadow root', async ({ page }) => {
         await page.route('**/components/*', async (route) => {

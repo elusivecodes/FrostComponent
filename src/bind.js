@@ -2,6 +2,8 @@ import { evaluator } from './evaluator.js';
 import { createFunction, findPropertyOwner, isComponent, isEmpty, isPlainObject, skipSubtree } from './helpers.js';
 import { booleanAttributes, setInitialState } from './vars.js';
 
+/** @typedef {import('./component.js').default} Component */
+
 /**
  * Binds an element subtree to a component.
  * @param {Component} component The component that owns bindings.
@@ -52,7 +54,7 @@ export function bind(component, element) {
 /**
  * Binds a dynamic attribute to a component.
  * @param {Component} component The component that owns the binding.
- * @param {HTMLElement} element The target element.
+ * @param {Element} element The target element.
  * @param {string} name The bound attribute name (including the ":" prefix).
  * @param {string} value The attribute expression string.
  */
@@ -173,7 +175,7 @@ function bindAttribute(component, element, name, value) {
 /**
  * Binds an event handler to a component.
  * @param {Component} component The component that owns the handler.
- * @param {HTMLElement} element The target element.
+ * @param {Element} element The target element.
  * @param {string} name The event attribute name (including the "@" prefix).
  * @param {string} value The handler attribute value.
  */
@@ -349,7 +351,7 @@ function bindInput(component, element, name, value) {
 /**
  * Binds a component expression to a DOM property.
  * @param {Component} component The component that owns the binding.
- * @param {HTMLElement} element The target element.
+ * @param {Element} element The target element.
  * @param {string} name The bound property name (including the "." prefix).
  * @param {string} value The property expression string.
  */

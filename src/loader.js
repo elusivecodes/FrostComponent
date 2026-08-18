@@ -32,9 +32,10 @@ function parseShadowMode(container) {
  * Defines a component class from its HTML template.
  * @param {string} tagName The custom element tag name.
  * @param {string} html The HTML template string.
+ * @param {string} templateUrl The fetched template URL.
  * @returns {Promise<void>} A promise that resolves once the component is defined.
  */
-function define(tagName, html) {
+function define(tagName, html, templateUrl) {
     if (!isComponent(tagName)) {
         throw new Error('Components must begin with "x-"');
     }
@@ -60,52 +61,71 @@ function define(tagName, html) {
     const styleBlocks = container.querySelectorAll(':scope > style');
 
     // load scripts
-    const promises = [...sourceScripts]
-        .map((node) => {
-            const src = node.getAttribute('src');
+    const promises = [];
 
-            if (!(src in loadedScripts)) {
-                const script = document.createElement('script');
+    for (const sourceScript of sourceScripts) {
+        const source = sourceScript.getAttribute('src')?.trim();
 
-                script.setAttribute('src', src);
-                script.setAttribute('type', 'text/javascript');
-                script.setAttribute('async', 'false');
+        if (!source) {
+            continue;
+        }
 
-                loadedScripts[src] = new Promise((resolve, reject) => {
-                    script.onload = resolve;
-                    script.onerror = () => {
-                        script.remove();
-                        reject(new Error(`Failed to load script "${src}"`));
-                    };
-                });
+        const src = new URL(source, templateUrl).href;
 
-                loadedScripts[src] = loadedScripts[src].catch((error) => {
+        if (!(src in loadedScripts)) {
+            const script = document.createElement('script');
+
+            script.setAttribute('src', src);
+            script.setAttribute('type', 'text/javascript');
+            script.async = false;
+
+            loadedScripts[src] = new Promise((resolve, reject) => {
+                script.onload = () => resolve();
+                script.onerror = () => {
+                    script.remove();
                     delete loadedScripts[src];
-                    throw error;
-                });
+                    reject(new Error(`Failed to load script "${src}"`));
+                };
+            });
 
-                document.head.appendChild(script);
-            }
+            document.head.appendChild(script);
+        }
 
-            return loadedScripts[src];
-        });
+        promises.push(loadedScripts[src]);
+    }
 
     // load stylesheets/style blocks
-    if (componentShadowMode) {
-        // handled per instance inside the shadow root
-    } else {
-        for (const stylesheet of stylesheets) {
-            const href = stylesheet.getAttribute('href');
+    for (const stylesheet of stylesheets) {
+        const source = stylesheet.getAttribute('href')?.trim();
 
-            if (loadedStylesheets[href]) {
-                continue;
-            }
+        if (!source) {
+            continue;
+        }
 
-            loadedStylesheets[href] = true;
+        const href = new URL(source, templateUrl).href;
+        stylesheet.setAttribute('href', href);
+
+        if (componentShadowMode) {
+            continue;
+        }
+
+        if (!(href in loadedStylesheets)) {
+            loadedStylesheets[href] = new Promise((resolve, reject) => {
+                stylesheet.onload = () => resolve();
+                stylesheet.onerror = () => {
+                    stylesheet.remove();
+                    delete loadedStylesheets[href];
+                    reject(new Error(`Failed to load stylesheet "${href}"`));
+                };
+            });
 
             document.head.appendChild(stylesheet);
         }
 
+        promises.push(loadedStylesheets[href]);
+    }
+
+    if (!componentShadowMode) {
         for (const styleBlock of styleBlocks) {
             document.head.appendChild(styleBlock);
         }
@@ -186,15 +206,13 @@ export function load(nodes, { baseUrl = null, extension = null } = {}) {
         const url = `${baseUrl}/${tagName}${extension ? '.' + extension : ''}`;
 
         fetch(url)
-            .then((response) => {
+            .then(async (response) => {
                 if (!response.ok) {
                     throw new Error(`Failed to load component "${tagName}" (${response.status})`);
                 }
 
-                return response.text();
-            })
-            .then((content) => {
-                return define(tagName, content);
+                const content = await response.text();
+                return define(tagName, content, response.url || url);
             })
             .catch((error) => {
                 delete loaded[tagName];

@@ -11,6 +11,7 @@ import { getShadowStyleBlocks, getShadowStylesheets } from './vars.js';
  * Base custom element class for Frost components.
  */
 export default class Component extends HTMLElement {
+    /** @type {'open'|'closed'|null} */
     static shadowMode = null;
 
     #connected = false;
@@ -70,6 +71,10 @@ export default class Component extends HTMLElement {
             const styleBlocks = getShadowStyleBlocks(this.constructor);
 
             for (const stylesheet of stylesheets) {
+                if (!stylesheet.getAttribute('href')?.trim()) {
+                    continue;
+                }
+
                 fragment.appendChild(stylesheet.cloneNode(true));
             }
 
@@ -356,6 +361,7 @@ export default class Component extends HTMLElement {
     /**
      * Registers a promise to defer the loaded event.
      * @param {Promise<*>} promise The promise to await before marking the component as loaded.
+     * @throws {Error} When called after the component has loaded.
      */
     deferLoad(promise) {
         if (this.loaded) {
@@ -411,12 +417,7 @@ export default class Component extends HTMLElement {
     /**
      * Gets a slot definition.
      * @param {string} [name=''] The slot name.
-     * @returns {{
-     *   start: Comment,
-     *   end: Comment,
-     *   assign: function(Node): void,
-     *   assigned: function(): Node[]
-     * }|undefined} The slot definition, or `undefined` if the slot is missing.
+     * @returns {import('./slots.js').SlotDefinition|undefined} The slot definition, or `undefined` if the slot is missing.
      */
     getSlot(name = '') {
         return this.#slots[name];

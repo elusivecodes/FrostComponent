@@ -177,27 +177,27 @@ test.describe('Component event bindings', () => {
 
     test('applies @click.capture modifier', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div id="outer" @click.capture="onClick"><button id="inner"></button></div>');
-        await attachMethod(page, 'XComponent', 'onClick', function() {
-            this.state.clicked = true;
+        await attachMethod(page, 'XComponent', 'onClick', function(event) {
+            this.state.eventPhase = event.eventPhase;
         });
 
         await page.setContent('<x-component></x-component>');
 
-        const clicked = await page.evaluate(() => {
+        const eventPhase = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
             const inner = root.querySelector('#inner');
             inner.dispatchEvent(new Event('click', { bubbles: true }));
-            return root.component.state.clicked;
+            return root.component.state.eventPhase;
         });
 
-        expect(clicked).toBe(true);
+        expect(eventPhase).toBe(1);
     });
 
     test('applies @click.passive modifier', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<button @click.passive="onClick"></button>');
         await attachMethod(page, 'XComponent', 'onClick', function(event) {
-            this.state.defaultPrevented = event.defaultPrevented;
             event.preventDefault();
+            this.state.defaultPrevented = event.defaultPrevented;
         });
 
         await page.setContent('<x-component></x-component>');

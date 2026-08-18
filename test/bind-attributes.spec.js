@@ -36,7 +36,7 @@ test.describe('Component attribute bindings', () => {
         await expect(box).toHaveAttribute('title', 'hello');
 
         await updateState(page, 'x-component', { title: null });
-        await expect(box).not.toHaveAttribute('title', 'hello');
+        await expect(box).not.toHaveAttribute('title');
     });
 
     test('handles false according to boolean and ordinary attribute semantics', async ({ page }) => {

@@ -1,3 +1,5 @@
+/** @typedef {import('./component.js').default} Component */
+
 /**
  * Finds child components rendered within an element subtree.
  * @param {Component} component The root component.
@@ -112,7 +114,7 @@ export function flattenElements(nodes) {
 
 /**
  * Finds the object in a prototype chain that owns a property.
- * @param {object} target The object to inspect.
+ * @param {object|null|undefined} target The object to inspect.
  * @param {string} property The property name to resolve.
  * @param {object} [options] The lookup options.
  * @param {boolean} [options.includeSelf=true] Whether to start on the target itself.

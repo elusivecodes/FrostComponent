@@ -35,8 +35,13 @@ export const booleanAttributes = new Set([
     'shadowrootserializable',
 ]);
 
+/** @type {Object<string, boolean>} */
 export const loaded = {};
+
+/** @type {Object<string, Promise<void>>} */
 export const loadedScripts = {};
+
+/** @type {Object<string, Promise<void>>} */
 export const loadedStylesheets = {};
 
 const initialStates = new WeakMap();
@@ -103,8 +108,8 @@ export function getShadowStylesheets(ComponentClass) {
  * Sets the cached shadow assets for a component class.
  * @param {typeof import('./component.js').default} ComponentClass The component constructor.
  * @param {object} [options] The shadow asset options.
- * @param {HTMLStyleElement[]} [options.styleBlocks=[]] The shadow style blocks.
- * @param {HTMLLinkElement[]} [options.stylesheets=[]] The shadow stylesheet links.
+ * @param {Iterable<HTMLStyleElement>} [options.styleBlocks=[]] The shadow style blocks.
+ * @param {Iterable<HTMLLinkElement>} [options.stylesheets=[]] The shadow stylesheet links.
  */
 export function setShadowAssets(ComponentClass, { styleBlocks = [], stylesheets = [] } = {}) {
     shadowStyleBlocks.set(ComponentClass, [...styleBlocks]);

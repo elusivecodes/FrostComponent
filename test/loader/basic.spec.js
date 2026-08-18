@@ -157,7 +157,7 @@ test.describe('Component autoload', () => {
         expect(sharedStylesheetRequests).toBe(1);
     });
 
-    test('runs connected scripts on connect and init scripts on initialize', async ({ page }) => {
+    test('runs connected scripts before initialized scripts', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
             const url = route.request().url();
             if (url.endsWith('/x-scripts')) {
@@ -188,44 +188,6 @@ test.describe('Component autoload', () => {
 
         await page.waitForFunction(() => {
             const root = document.querySelector('[x\\:component="x-scripts"]');
-            return root && root.component && root.component.loaded === true;
-        });
-
-        const events = await page.evaluate(() => window._events || []);
-        expect(events).toEqual(['connected', 'initialized']);
-    });
-
-    test('runs connected scripts before initialized scripts and only once', async ({ page }) => {
-        await page.route('**/components/*', async (route) => {
-            const url = route.request().url();
-            if (url.endsWith('/x-order')) {
-                await route.fulfill({
-                    status: 200,
-                    contentType: 'text/html',
-                    body: `
-                        <script connected>
-                            window._events.push('connected');
-                        </script>
-                        <script>
-                            window._events.push('initialized');
-                        </script>
-                        <div></div>
-                    `,
-                });
-                return;
-            }
-
-            await route.fulfill({ status: 404 });
-        });
-
-        await page.evaluate(() => {
-            window._events = [];
-            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
-            document.body.innerHTML = '<x-order></x-order>';
-        });
-
-        await page.waitForFunction(() => {
-            const root = document.querySelector('[x\\:component="x-order"]');
             return root && root.component && root.component.loaded === true;
         });
 
@@ -279,7 +241,6 @@ test.describe('Component autoload', () => {
         const events = await page.evaluate(() => window._events || []);
         expect(events).toEqual(['connected', 'initialized', 'connected']);
     });
-
 
     test('does not define the same component twice when requested concurrently', async ({ page }) => {
         let defineCalls = 0;

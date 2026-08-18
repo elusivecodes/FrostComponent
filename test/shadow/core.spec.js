@@ -168,7 +168,6 @@ test.describe('Shadow mode', () => {
         await expect(page.locator('[x\\:component="x-nested"]')).toHaveCount(1);
     });
 
-
     test('updates x:if inside shadow root', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
             const url = route.request().url();
@@ -288,7 +287,6 @@ test.describe('Shadow mode', () => {
         expect(updated.items).toBe(1);
         expect(updated.text).toBe('3');
     });
-
 
     test('mounts style blocks and stylesheets in shadow root', async ({ page }) => {
         await page.route('**/components/*', async (route) => {

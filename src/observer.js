@@ -15,7 +15,7 @@ let pendingBootstrapCallback = null;
 
 /**
  * Loads undefined component elements in a node collection when autoload is enabled.
- * @param {Iterable<Node>} nodes The nodes to scan for components.
+ * @param {NodeList|Node[]} nodes The nodes to scan for components.
  */
 const loadComponents = (nodes) => {
     if (!currentBaseUrl || !nodes.length) {
@@ -126,13 +126,29 @@ const bootstrapCallback = () => {
     const elements = document.body.querySelectorAll(':not(script, link[rel="stylesheet"], style)');
 
     for (const script of document.querySelectorAll('script[src]')) {
-        const src = script.getAttribute('src');
+        if (!script.getAttribute('src')?.trim()) {
+            continue;
+        }
+
+        const src = script.src;
+        if (src in loadedScripts) {
+            continue;
+        }
+
         loadedScripts[src] = Promise.resolve();
     }
 
     for (const stylesheet of document.querySelectorAll('link[rel="stylesheet"]')) {
-        const href = stylesheet.getAttribute('href');
-        loadedStylesheets[href] = true;
+        if (!stylesheet.getAttribute('href')?.trim()) {
+            continue;
+        }
+
+        const href = stylesheet.href;
+        if (href in loadedStylesheets) {
+            continue;
+        }
+
+        loadedStylesheets[href] = Promise.resolve();
     }
 
     if (!intersectionObserver) {

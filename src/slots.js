@@ -1,12 +1,17 @@
+/** @typedef {import('./component.js').default} Component */
+
+/**
+ * @typedef {object} SlotDefinition
+ * @property {Comment} start The start marker for the slot.
+ * @property {Comment} end The end marker for the slot.
+ * @property {(node: Node) => void} assign Assigns a node to the slot.
+ * @property {() => Node[]} assigned Gets the nodes assigned to the slot.
+ */
+
 /**
  * Replaces descendant `<slot>` elements with comment markers.
  * @param {Element} element The element to scan for slots.
- * @returns {Object.<string, {
- *   start: Comment,
- *   end: Comment,
- *   assign: function(Node): void,
- *   assigned: function(): Node[]
- * }>} The slot map keyed by slot name.
+ * @returns {Object<string, SlotDefinition>} The slot map keyed by slot name.
  */
 export function parseSlots(element) {
     const slotMarkers = [...element.querySelectorAll('slot')]

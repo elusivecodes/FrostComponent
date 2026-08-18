@@ -3,6 +3,8 @@ import { evaluator } from './evaluator.js';
 import { isComponent, skipSubtree } from './helpers.js';
 import { setInitialState } from './vars.js';
 
+/** @typedef {import('./component.js').default} Component */
+
 /**
  * @typedef {object} ConditionalCase
  * @property {string} condition The condition expression for the case.
@@ -15,7 +17,7 @@ import { setInitialState } from './vars.js';
  * @typedef {object} LoopBlock
  * @property {string} iterable The expression that resolves to the loop items.
  * @property {string} identifier The property name used as the item key.
- * @property {Component} element The component template cloned for each item.
+ * @property {Element} element The component template cloned for each item.
  * @property {Comment} start The start marker for the loop block.
  * @property {Comment} end The end marker for the loop block.
  */

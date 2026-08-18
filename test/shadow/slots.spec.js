@@ -239,7 +239,6 @@ test.describe('Shadow mode', () => {
         expect(events).toEqual(['x-host:mounted', 'x-slotted:mounted', 'x-slotted:loaded', 'x-host:loaded']);
     });
 
-
     test('binds slotted content to correct scope in shadow mode', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
             const url = route.request().url();
@@ -318,98 +317,6 @@ test.describe('Shadow mode', () => {
         });
 
         expect(updated).toBe('2');
-    });
-
-    test('mounts style blocks and stylesheets in shadow root', async ({ page }) => {
-        await page.route('**/components/*', async (route) => {
-            const url = route.request().url();
-            if (url.endsWith('/x-style')) {
-                await route.fulfill({
-                    status: 200,
-                    contentType: 'text/html',
-                    body: `
-                        <!-- shadow -->
-                        <link rel="stylesheet" href="test.css">
-                        <style>#root { color: red; }</style>
-                        <div id="root">text</div>
-                    `,
-                });
-                return;
-            }
-
-            await route.fulfill({ status: 404 });
-        });
-
-        await page.evaluate(() => {
-            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
-            document.body.innerHTML = '<x-style></x-style>';
-        });
-
-        await page.waitForFunction(() => {
-            const host = document.querySelector('x-style');
-            return host && host.loaded === true;
-        });
-
-        const result = await page.evaluate(() => {
-            const host = document.querySelector('x-style');
-            return {
-                shadowStyleCount: host.renderRoot.querySelectorAll('style').length,
-                shadowLinkCount: host.renderRoot.querySelectorAll('link[rel="stylesheet"]').length,
-                headStyleCount: document.head.querySelectorAll('style').length,
-                headLinkCount: document.head.querySelectorAll('link[rel="stylesheet"]').length,
-            };
-        });
-
-        expect(result.shadowStyleCount).toBe(1);
-        expect(result.shadowLinkCount).toBe(1);
-        expect(result.headStyleCount).toBe(0);
-        expect(result.headLinkCount).toBe(0);
-    });
-
-    test('clones shadow styles per instance without leaking to head', async ({ page }) => {
-        await page.route('**/components/*', async (route) => {
-            const url = route.request().url();
-            if (url.endsWith('/x-style')) {
-                await route.fulfill({
-                    status: 200,
-                    contentType: 'text/html',
-                    body: `
-                        <!-- shadow -->
-                        <link rel="stylesheet" href="test.css">
-                        <style>#root { color: red; }</style>
-                        <div id="root">text</div>
-                    `,
-                });
-                return;
-            }
-
-            await route.fulfill({ status: 404 });
-        });
-
-        await page.evaluate(() => {
-            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
-            document.body.innerHTML = '<x-style></x-style><x-style></x-style>';
-        });
-
-        await page.waitForFunction(() => {
-            const hosts = document.querySelectorAll('x-style');
-            return hosts.length === 2 && [...hosts].every((h) => h.loaded === true);
-        });
-
-        const result = await page.evaluate(() => {
-            const hosts = [...document.querySelectorAll('x-style')];
-            return {
-                shadowStyles: hosts.map((host) => host.renderRoot.querySelectorAll('style').length),
-                shadowLinks: hosts.map((host) => host.renderRoot.querySelectorAll('link[rel="stylesheet"]').length),
-                headStyleCount: document.head.querySelectorAll('style').length,
-                headLinkCount: document.head.querySelectorAll('link[rel="stylesheet"]').length,
-            };
-        });
-
-        expect(result.shadowStyles).toEqual([1, 1]);
-        expect(result.shadowLinks).toEqual([1, 1]);
-        expect(result.headStyleCount).toBe(0);
-        expect(result.headLinkCount).toBe(0);
     });
 
     test('handles closed shadow roots with slots and nested components', async ({ page }) => {
