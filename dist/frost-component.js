@@ -1532,7 +1532,7 @@
     /**
      * Collects elements keyed by `x:key`.
      * @param {Element} element The element to scan for keys.
-     * @returns {Object.<string, Element>} The key-to-element map.
+     * @returns {Map<string, Element>} The key-to-element map.
      * @throws {Error} When duplicate keys are found.
      */
     function parseElements(element) {
@@ -1542,7 +1542,7 @@
             elements.unshift(element);
         }
 
-        const result = {};
+        const result = new Map();
 
         for (const element of elements) {
             const key = element.getAttribute('x:key');
@@ -1552,11 +1552,11 @@
                 continue;
             }
 
-            if (key in result) {
+            if (result.has(key)) {
                 throw new Error(`Duplicate key element "${key}"`);
             }
 
-            result[key] = element;
+            result.set(key, element);
         }
 
         return result;
@@ -1580,12 +1580,20 @@
                 const start = document.createComment(`slot[${name}]`);
                 const end = document.createComment(`/slot[${name}]`);
 
+                let hasAssigned = false;
                 const assign = (node) => {
                     if (!end.parentNode) {
                         return;
                     }
 
-                    end.parentNode.insertBefore(node, end);
+                    if (!hasAssigned) {
+                        while (start.nextSibling !== end) {
+                            start.nextSibling.remove();
+                        }
+                        hasAssigned = true;
+                    }
+
+                    end.before(node);
                 };
 
                 const assigned = () => {
@@ -1603,6 +1611,9 @@
                 };
 
                 slot.parentNode.insertBefore(start, slot);
+                while (slot.firstChild) {
+                    slot.parentNode.insertBefore(slot.firstChild, slot);
+                }
                 slot.parentNode.insertBefore(end, slot);
                 slot.remove();
 
@@ -1620,10 +1631,9 @@
             let name = '';
             if (element.nodeType === Node.ELEMENT_NODE) {
                 name = element.getAttribute('slot') || '';
-                element.removeAttribute('slot');
             }
 
-            const slot = component.slot(name);
+            const slot = component.getSlot(name);
 
             if (!slot) {
                 continue;
@@ -1638,7 +1648,7 @@
      */
     function parseState(component) {
         for (const attr of [...component.attributes]) {
-            if (attr.name.startsWith('x:')) {
+            if (attr.name === 'slot' || attr.name.startsWith('x:')) {
                 continue;
             }
 
@@ -1711,7 +1721,13 @@
             this.#rootElement.component = this;
             this.#rootElement.setAttribute('x:component', this.tagName.toLowerCase());
 
-            Object.assign(this, parseElements(this.#rootElement));
+            for (const [key, element] of parseElements(this.#rootElement)) {
+                if (key in this) {
+                    throw new Error(`Component property "${key}" already exists`);
+                }
+
+                this[key] = element;
+            }
 
             this.#slots = this.#shadowRoot ? {} : parseSlots(this.#rootElement);
 
@@ -1919,6 +1935,11 @@
                     } else {
                         processSlots(this);
 
+                        const slot = this.getAttribute('slot');
+                        if (slot !== null) {
+                            this.#rootElement.setAttribute('slot', slot);
+                        }
+
                         // replace element
                         this.parentNode.insertBefore(this.#rootElement, this);
                         this.remove();
@@ -2055,6 +2076,20 @@
         }
 
         /**
+         * Gets a slot definition.
+         * @param {string} [name=''] The slot name.
+         * @returns {{
+         *   start: Comment,
+         *   end: Comment,
+         *   assign: function(Node): void,
+         *   assigned: function(): Node[]
+         * }|undefined} The slot definition, or `undefined` if the slot is missing.
+         */
+        getSlot(name = '') {
+            return this.#slots[name];
+        }
+
+        /**
          * Lifecycle hook that runs after the component has been rendered and bound.
          */
         initialize() {
@@ -2094,7 +2129,7 @@
                 const styleBlocks = getShadowStyleBlocks(this.constructor);
                 const stylesheets = getShadowStylesheets(this.constructor);
 
-                for (const node of fragment.children) {
+                for (const node of [...fragment.children]) {
                     if (node.matches('style')) {
                         if (!styleBlocks.some((block) => block.isEqualNode(node))) {
                             styleBlocks.push(node);
@@ -2120,20 +2155,6 @@
             }
 
             return fragment.firstElementChild;
-        }
-
-        /**
-         * Gets a slot definition.
-         * @param {string} [name=''] The slot name.
-         * @returns {{
-         *   start: Comment,
-         *   end: Comment,
-         *   assign: function(Node): void,
-         *   assigned: function(): Node[]
-         * }|undefined} The slot definition, or `undefined` if the slot is missing.
-         */
-        slot(name = '') {
-            return this.#slots[name];
         }
     }
 
@@ -2369,7 +2390,7 @@
                     return;
                 }
 
-                const nodes = this.slot().assigned();
+                const nodes = this.getSlot().assigned();
                 for (const node of nodes) {
                     this.rootElement.parentNode.insertBefore(node, this.rootElement);
                 }

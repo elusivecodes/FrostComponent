@@ -1,7 +1,7 @@
 /**
  * Collects elements keyed by `x:key`.
  * @param {Element} element The element to scan for keys.
- * @returns {Object.<string, Element>} The key-to-element map.
+ * @returns {Map<string, Element>} The key-to-element map.
  * @throws {Error} When duplicate keys are found.
  */
 export function parseElements(element) {
@@ -11,7 +11,7 @@ export function parseElements(element) {
         elements.unshift(element);
     }
 
-    const result = {};
+    const result = new Map();
 
     for (const element of elements) {
         const key = element.getAttribute('x:key');
@@ -21,11 +21,11 @@ export function parseElements(element) {
             continue;
         }
 
-        if (key in result) {
+        if (result.has(key)) {
             throw new Error(`Duplicate key element "${key}"`);
         }
 
-        result[key] = element;
+        result.set(key, element);
     }
 
     return result;

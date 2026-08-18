@@ -403,7 +403,7 @@ You can call `Component.bootstrap()` more than once. Omitted options keep the cu
 - `component.dispatch(name, detail)`: dispatch a bubbling composed custom event
 - `component.deferLoad(promise)`: hold back `loaded` until a promise settles
 - `component.ready(callback)`: run a callback once the component is loaded
-- `component.slot(name = '')`: access a parsed light-DOM slot object with `assign(node)` and `assigned()`, or `undefined` when no slot exists
+- `component.getSlot(name = '')`: access a parsed light-DOM slot object with `assign(node)` and `assigned()`, or `undefined` when no slot exists
 
 ### Effects
 

@@ -16,12 +16,20 @@ export function parseSlots(element) {
             const start = document.createComment(`slot[${name}]`);
             const end = document.createComment(`/slot[${name}]`);
 
+            let hasAssigned = false;
             const assign = (node) => {
                 if (!end.parentNode) {
                     return;
                 }
 
-                end.parentNode.insertBefore(node, end);
+                if (!hasAssigned) {
+                    while (start.nextSibling !== end) {
+                        start.nextSibling.remove();
+                    }
+                    hasAssigned = true;
+                }
+
+                end.before(node);
             };
 
             const assigned = () => {
@@ -39,6 +47,9 @@ export function parseSlots(element) {
             };
 
             slot.parentNode.insertBefore(start, slot);
+            while (slot.firstChild) {
+                slot.parentNode.insertBefore(slot.firstChild, slot);
+            }
             slot.parentNode.insertBefore(end, slot);
             slot.remove();
 
@@ -57,10 +68,9 @@ export function processSlots(component) {
         let name = '';
         if (element.nodeType === Node.ELEMENT_NODE) {
             name = element.getAttribute('slot') || '';
-            element.removeAttribute('slot');
         }
 
-        const slot = component.slot(name);
+        const slot = component.getSlot(name);
 
         if (!slot) {
             continue;

@@ -382,6 +382,36 @@ test.describe('Shadow mode', () => {
         expect(result.headLinkCount).toBe(0);
     });
 
+    test('extracts adjacent shadow styles and stylesheets', async ({ page }) => {
+        await defineComponent(page, 'x-style', 'XStyle', `
+            <style data-style="one">.one { color: red; }</style>
+            <style data-style="two">.two { color: blue; }</style>
+            <link rel="stylesheet" href="data:text/css,.one%7Bcolor:red%7D" data-style="one">
+            <link rel="stylesheet" href="data:text/css,.two%7Bcolor:blue%7D" data-style="two">
+            <div id="root">text</div>
+        `);
+
+        await page.evaluate(() => {
+            window.XStyle.shadowMode = 'open';
+            document.body.innerHTML = '<x-style></x-style>';
+        });
+
+        await page.waitForFunction(() => document.querySelector('x-style')?.loaded === true);
+
+        const result = await page.evaluate(() => {
+            const root = document.querySelector('x-style').renderRoot;
+            return {
+                links: [...root.querySelectorAll('link')].map((link) => link.dataset.style),
+                styles: [...root.querySelectorAll('style')].map((style) => style.dataset.style),
+            };
+        });
+
+        expect(result).toEqual({
+            links: ['one', 'two'],
+            styles: ['one', 'two'],
+        });
+    });
+
     test('keeps shadow asset caches isolated between JS-defined component classes', async ({ page }) => {
         await defineComponent(page, 'x-style-a', 'XStyleA', `
             <style data-style="a">#a { color: red; }</style>

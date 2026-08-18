@@ -43,7 +43,7 @@ export default class Suspense extends Component {
                 return;
             }
 
-            const nodes = this.slot().assigned();
+            const nodes = this.getSlot().assigned();
             for (const node of nodes) {
                 this.rootElement.parentNode.insertBefore(node, this.rootElement);
             }

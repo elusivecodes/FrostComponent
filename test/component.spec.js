@@ -59,6 +59,30 @@ test.describe('Component constraints', () => {
         expect(error.message).toContain('Duplicate key element "dup"');
     });
 
+    test('detects duplicate x:key values matching inherited properties', async ({ page }) => {
+        await defineComponent(page, 'x-component', 'XComponent', '<div><span x:key="toString"></span><span x:key="toString"></span></div>');
+        const errorPromise = page.waitForEvent('pageerror');
+        await page.setContent('<x-component></x-component>');
+        const error = await errorPromise;
+        expect(error.message).toContain('Duplicate key element "toString"');
+    });
+
+    test('throws when x:key conflicts with a framework property', async ({ page }) => {
+        await defineComponent(page, 'x-component', 'XComponent', '<div><span x:key="state"></span></div>');
+        const errorPromise = page.waitForEvent('pageerror');
+        await page.setContent('<x-component></x-component>');
+        const error = await errorPromise;
+        expect(error.message).toContain('Component property "state" already exists');
+    });
+
+    test('throws when x:key conflicts with a native property', async ({ page }) => {
+        await defineComponent(page, 'x-component', 'XComponent', '<div><span x:key="remove"></span></div>');
+        const errorPromise = page.waitForEvent('pageerror');
+        await page.setContent('<x-component></x-component>');
+        const error = await errorPromise;
+        expect(error.message).toContain('Component property "remove" already exists');
+    });
+
     test('throws when a component renders multiple root elements', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div></div><div></div>');
         const errorPromise = page.waitForEvent('pageerror');

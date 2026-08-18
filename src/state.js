@@ -7,7 +7,7 @@ import { takeInitialState } from './vars.js';
  */
 export function parseState(component) {
     for (const attr of [...component.attributes]) {
-        if (attr.name.startsWith('x:')) {
+        if (attr.name === 'slot' || attr.name.startsWith('x:')) {
             continue;
         }
 

@@ -54,7 +54,13 @@ export default class Component extends HTMLElement {
         this.#rootElement.component = this;
         this.#rootElement.setAttribute('x:component', this.tagName.toLowerCase());
 
-        Object.assign(this, parseElements(this.#rootElement));
+        for (const [key, element] of parseElements(this.#rootElement)) {
+            if (key in this) {
+                throw new Error(`Component property "${key}" already exists`);
+            }
+
+            this[key] = element;
+        }
 
         this.#slots = this.#shadowRoot ? {} : parseSlots(this.#rootElement);
 
@@ -262,6 +268,11 @@ export default class Component extends HTMLElement {
                 } else {
                     processSlots(this);
 
+                    const slot = this.getAttribute('slot');
+                    if (slot !== null) {
+                        this.#rootElement.setAttribute('slot', slot);
+                    }
+
                     // replace element
                     this.parentNode.insertBefore(this.#rootElement, this);
                     this.remove();
@@ -398,6 +409,20 @@ export default class Component extends HTMLElement {
     }
 
     /**
+     * Gets a slot definition.
+     * @param {string} [name=''] The slot name.
+     * @returns {{
+     *   start: Comment,
+     *   end: Comment,
+     *   assign: function(Node): void,
+     *   assigned: function(): Node[]
+     * }|undefined} The slot definition, or `undefined` if the slot is missing.
+     */
+    getSlot(name = '') {
+        return this.#slots[name];
+    }
+
+    /**
      * Lifecycle hook that runs after the component has been rendered and bound.
      */
     initialize() {
@@ -437,7 +462,7 @@ export default class Component extends HTMLElement {
             const styleBlocks = getShadowStyleBlocks(this.constructor);
             const stylesheets = getShadowStylesheets(this.constructor);
 
-            for (const node of fragment.children) {
+            for (const node of [...fragment.children]) {
                 if (node.matches('style')) {
                     if (!styleBlocks.some((block) => block.isEqualNode(node))) {
                         styleBlocks.push(node);
@@ -463,19 +488,5 @@ export default class Component extends HTMLElement {
         }
 
         return fragment.firstElementChild;
-    }
-
-    /**
-     * Gets a slot definition.
-     * @param {string} [name=''] The slot name.
-     * @returns {{
-     *   start: Comment,
-     *   end: Comment,
-     *   assign: function(Node): void,
-     *   assigned: function(): Node[]
-     * }|undefined} The slot definition, or `undefined` if the slot is missing.
-     */
-    slot(name = '') {
-        return this.#slots[name];
     }
 }

@@ -12,6 +12,24 @@ test.describe('Component slots', () => {
 
         const root = page.locator('[x\\:component="x-component"]');
         await expect(root.locator('h1')).toHaveText('Title');
+        await expect(root.locator('h1')).toHaveAttribute('slot', 'title');
+    });
+
+    test('exposes slot definitions without overriding the native slot property', async ({ page }) => {
+        await defineComponent(page, 'x-component', 'XComponent', '<div><slot name="title"></slot></div>');
+        await page.setContent('<x-component slot="outer"><h1 slot="title">Title</h1></x-component>');
+
+        const result = await page.locator('[x\\:component="x-component"]').evaluate((element) => ({
+            assignedCount: element.component.getSlot('title').assigned().length,
+            componentSlot: element.component.slot,
+            elementSlot: element.slot,
+        }));
+
+        expect(result).toEqual({
+            assignedCount: 1,
+            componentSlot: 'outer',
+            elementSlot: 'outer',
+        });
     });
 
     test('assigns default slots', async ({ page }) => {
@@ -20,6 +38,16 @@ test.describe('Component slots', () => {
 
         const root = page.locator('[x\\:component="x-component"]');
         await expect(root.locator('p')).toHaveText('Body');
+    });
+
+    test('renders fallback content until a node is assigned', async ({ page }) => {
+        await defineComponent(page, 'x-component', 'XComponent', '<div><slot><span class="fallback">Fallback</span></slot></div>');
+        await page.setContent('<x-component></x-component><x-component><span class="assigned">Assigned</span></x-component>');
+
+        const roots = page.locator('[x\\:component="x-component"]');
+        await expect(roots.nth(0).locator('.fallback')).toHaveText('Fallback');
+        await expect(roots.nth(1).locator('.fallback')).toHaveCount(0);
+        await expect(roots.nth(1).locator('.assigned')).toHaveText('Assigned');
     });
 
     test('keeps nested component bindings in their own scope when slotted', async ({ page }) => {
