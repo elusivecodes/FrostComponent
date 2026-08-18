@@ -33,7 +33,7 @@ jobs:
         run: npm run js-lint
 
       - name: Build and run tests
-        run: npm test
+        run: npm test -- --project=chromium
 
       - name: Validate package contents
         run: npm pack --dry-run

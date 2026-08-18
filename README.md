@@ -45,6 +45,10 @@ Load the bundle from your own copy or a CDN:
 
 The browser bundle exposes `globalThis.Component`. Call `Component.bootstrap(...)` to start the runtime and register built-ins such as `x-suspense`.
 
+### Content Security Policy
+
+FrostComponent uses the `Function` constructor for full binding expressions, non-method event handlers, JavaScript-valued host attributes, and inline scripts in autoloaded components. Using these features requires `'unsafe-eval'` in the CSP `script-src` directive; a nonce or hash does not replace this permission.
+
 ## Quick Start
 
 ### HTML autoloaded components
@@ -120,7 +124,7 @@ FrostComponent revolves around a small base class and declarative template bindi
 - Components must render exactly one root element
 - Root `<slot>` elements are not allowed
 - `this.state` is a `StateStore` from [`@fr0st/state`](https://www.npmjs.com/package/@fr0st/state)
-- Non-`x:` host attributes become initial state and are removed from the host
+- Non-`x:` host attributes other than `slot` become initial state and are removed from the host
 - `x:key` exposes keyed descendants directly on the component instance
 
 Host attributes are parsed as JavaScript when possible and otherwise kept as strings.
@@ -388,7 +392,7 @@ You can call `Component.bootstrap()` more than once. Omitted options keep the cu
 - `component.element`: the component's public DOM node and dispatch surface; the host element in shadow mode, otherwise the final rendered element exposed outside nested light-DOM wrappers
 - `component.rootElement`: the root element returned by `render()`
 - `component.renderRoot`: the container that holds rendered output; a `ShadowRoot` in shadow mode, otherwise `rootElement`
-- `component.parentComponent`: the nearest parent component instance, if any
+- `component.parentComponent`: the owning parent component instance, if any
 - `component.childComponents`: child component instances rendered inside this component
 - `component.connected`: whether the component has entered the connection lifecycle
 - `component.mounted`: whether the runtime currently considers the component mounted in the observed DOM
@@ -398,12 +402,19 @@ You can call `Component.bootstrap()` more than once. Omitted options keep the cu
 
 ### Instance methods
 
-- `component.initialize()`: lifecycle hook after render and binding
+- `component.initialize()`: lifecycle hook after state parsing and DOM placement, before bindings and blocks are activated
+- `component.onConnected()`: lifecycle hook for the initial connection and later shadow-mode reconnections
 - `component.effect(callback, options)`: register a reactive effect
 - `component.dispatch(name, detail)`: dispatch a bubbling composed custom event
 - `component.deferLoad(promise)`: hold back `loaded` until a promise settles
 - `component.ready(callback)`: run a callback once the component is loaded
 - `component.getSlot(name = '')`: access a parsed light-DOM slot object with `assign(node)` and `assigned()`, or `undefined` when no slot exists
+
+### Lifecycle
+
+On the initial connection, `onConnected()` runs before the `connected` event. State is then parsed and the rendered root is placed in the DOM before `initialize()` runs. Bindings and blocks are activated next, followed by the `initialized` event. The `loaded` event follows once child components and any `deferLoad()` promises have settled.
+
+Shadow components call `onConnected()` again when reconnected, without repeating initialization. The `mounted`, `dismounted`, `visible`, and `invisible` events come from the DOM observers installed by `Component.bootstrap()` and are separate from initialization.
 
 ### Effects
 

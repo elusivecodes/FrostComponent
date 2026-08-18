@@ -90,8 +90,8 @@ export default class Component extends HTMLElement {
     }
 
     /**
-     * Determines whether the component is connected.
-     * @returns {boolean} True when the component is connected.
+     * Determines whether the component has entered its connection lifecycle.
+     * @returns {boolean} True when the component has connected.
      */
     get connected() {
         return this.#connected;
@@ -423,7 +423,7 @@ export default class Component extends HTMLElement {
     }
 
     /**
-     * Lifecycle hook that runs after the component has been rendered and bound.
+     * Lifecycle hook that runs after state parsing and DOM placement, before bindings and blocks are activated.
      */
     initialize() {
 

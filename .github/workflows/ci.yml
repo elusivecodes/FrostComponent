@@ -17,10 +17,17 @@ jobs:
       contents: read
     strategy:
       matrix:
-        node-version:
-          - 20
-          - 22
-          - 24
+        include:
+          - node-version: 20
+            browser: chromium
+          - node-version: 22
+            browser: chromium
+          - node-version: 24
+            browser: chromium
+          - node-version: 24
+            browser: firefox
+          - node-version: 24
+            browser: webkit
 
     steps:
       - name: Check out repository
@@ -35,14 +42,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps ${{ matrix.browser }}
 
       - name: Lint
         run: npm run js-lint
 
       - name: Build and run tests
-        run: npm test
+        run: npm test -- --project=${{ matrix.browser }}
 
       - name: Verify generated bundles are current
         run: git diff --exit-code -- dist
