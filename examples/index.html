@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Frost Component Examples</title>
+    <script src="../dist/frost-component.js"></script>
+    <style>
+        body {
+            max-width: 36em;
+            margin: 2em auto;
+            padding: 0 1em;
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Frost Component Examples</h1>
+
+    <section>
+        <h2>Counter</h2>
+        <x-counter></x-counter>
+        <x-counter></x-counter>
+        <x-counter></x-counter>
+        <x-counter></x-counter>
+    </section>
+
+    <section>
+        <h2>Todo</h2>
+        <x-todos></x-todos>
+    </section>
+
+    <script>
+        Component.bootstrap({ baseUrl: '/examples/components', extension: 'html' });
+    </script>
+</body>
+
+</html>
