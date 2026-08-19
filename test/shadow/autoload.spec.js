@@ -314,9 +314,10 @@ test.describe('Shadow mode', () => {
                             <x-closed-child></x-closed-child>
                         </div>
                         <script>
-                            this._childReady = new Promise((resolve) => {
-                                this.addEventListener('child-ready', resolve, { once: true });
-                            });
+                            this._childReady = false;
+                            this.addEventListener('child-ready', () => {
+                                this._childReady = true;
+                            }, { once: true });
                         </script>
                     `,
                 });
@@ -331,7 +332,7 @@ test.describe('Shadow mode', () => {
                         <div id="child">child</div>
                         <script>
                             this.addEventListener('loaded', () => {
-                                this.dispatchEvent(new CustomEvent('child-ready', { bubbles: true }));
+                                this.dispatch('child-ready');
                             }, { once: true });
                         </script>
                     `,
@@ -347,13 +348,9 @@ test.describe('Shadow mode', () => {
             document.body.innerHTML = '<x-closed-parent></x-closed-parent>';
         });
 
-        await page.waitForFunction(async () => {
+        await page.waitForFunction(() => {
             const parent = document.querySelector('x-closed-parent');
-            if (!parent) {
-                return false;
-            }
-            await parent._childReady;
-            return true;
+            return parent?._childReady === true;
         });
     });
 });
