@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { defineComponent, initializePage, attachMethod } from './support/utils.js';
+import { defineComponent, initializePage, attachMethod, waitForComponent } from './support/utils.js';
 
 test.describe('Component property bindings', () => {
     test.beforeEach(async ({ page }) => {
@@ -13,6 +13,7 @@ test.describe('Component property bindings', () => {
         });
 
         await page.setContent('<x-parent></x-parent>');
+        await waitForComponent(page, 'x-parent');
 
         const serviceName = await page.evaluate(() => {
             const target = document.querySelector('[x\\:component="x-parent"] #target');
@@ -26,6 +27,7 @@ test.describe('Component property bindings', () => {
         await defineComponent(page, 'x-parent', 'XParent', '<div><button id="target" .token="token"></button></div>');
 
         await page.setContent('<x-parent token="abc"></x-parent>');
+        await waitForComponent(page, 'x-parent');
 
         const initial = await page.evaluate(() => {
             const target = document.querySelector('[x\\:component="x-parent"] #target');

@@ -10,9 +10,11 @@ test.describe('Suspense component', () => {
         await defineComponent(page, 'x-delay', 'XDelay', '<div id="child">ready</div>');
         await attachMethod(page, 'XDelay', 'initialize', function() {
             this.deferLoad(window._loadPromise);
+            window._loadDeferred = true;
         });
 
         await page.evaluate(() => {
+            window._loadDeferred = false;
             window._resolveLoad = null;
             window._loadPromise = new Promise((resolve) => {
                 window._resolveLoad = resolve;
@@ -29,6 +31,7 @@ test.describe('Suspense component', () => {
             `;
         });
 
+        await page.waitForFunction(() => window._loadDeferred === true);
         await expect(page.locator('#fallback')).toHaveText('loading');
         await expect(page.locator('#child')).toHaveCount(1);
         await expect(page.locator('#child')).toBeHidden();
@@ -74,6 +77,7 @@ test.describe('Suspense component', () => {
                     body: `
                         <script>
                             this.deferLoad(window._shadowLoadPromise);
+                            window._shadowLoadDeferred = true;
                         </script>
                         <!-- shadow -->
                         <div id="child">ready</div>
@@ -86,6 +90,7 @@ test.describe('Suspense component', () => {
         });
 
         await page.evaluate(() => {
+            window._shadowLoadDeferred = false;
             window._resolveShadowLoad = null;
             window._shadowLoadPromise = new Promise((resolve) => {
                 window._resolveShadowLoad = resolve;
@@ -102,6 +107,7 @@ test.describe('Suspense component', () => {
             `;
         });
 
+        await page.waitForFunction(() => window._shadowLoadDeferred === true);
         await expect(page.locator('#fallback')).toHaveText('loading');
         await expect(page.locator('#child')).toHaveCount(1);
         await expect(page.locator('#child')).toBeHidden();

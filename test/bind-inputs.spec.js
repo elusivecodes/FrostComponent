@@ -29,6 +29,7 @@ test.describe('Component input bindings', () => {
         await page.setContent('<x-component name="alice"></x-component>');
 
         const input = page.locator('[x\\:component="x-component"] #name');
+        await expect(input).toHaveValue('alice');
         await input.evaluate((element) => {
             element.value = 'bob';
         });

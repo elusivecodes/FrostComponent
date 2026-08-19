@@ -6,6 +6,17 @@ export async function initializePage(page) {
     await page.addScriptTag({ path: distPath });
 }
 
+export async function flushTasks(page) {
+    await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
+}
+
+export async function waitForComponent(page, tagName) {
+    await page.waitForFunction((tagName) => {
+        const root = document.querySelector(`[x\\:component="${tagName}"]`);
+        return root?.component?.loaded === true;
+    }, tagName);
+}
+
 export async function defineComponent(page, tagName, className, template) {
     await page.addScriptTag({
         content: `

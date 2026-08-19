@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { defineComponent, initializePage, updateState } from './support/utils.js';
+import { defineComponent, initializePage, updateState, waitForComponent } from './support/utils.js';
 
 test.describe('Component blocks', () => {
     test.beforeEach(async ({ page }) => {
@@ -54,6 +54,7 @@ test.describe('Component blocks', () => {
             '<div><span id="a" x:if="first">A</span><span id="b" x:if="second">B</span></div>',
         );
         await page.setContent('<x-component first="false" second="false"></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const root = page.locator('[x\\:component="x-component"]');
         await expect(root.locator('#a')).toHaveCount(0);

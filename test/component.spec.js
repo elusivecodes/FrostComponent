@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { defineComponent, initializePage } from './support/utils.js';
+import { defineComponent, initializePage, waitForComponent } from './support/utils.js';
 
 test.describe('Component constraints', () => {
     test.beforeEach(async ({ page }) => {
@@ -9,6 +9,7 @@ test.describe('Component constraints', () => {
     test('assigns x:key elements to component properties', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div><span id="title" x:key="a"></span></div>');
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const match = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -21,6 +22,7 @@ test.describe('Component constraints', () => {
     test('assigns root x:key elements to component properties', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div id="root" x:key="root"></div>');
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const result = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -39,6 +41,7 @@ test.describe('Component constraints', () => {
     test('ignores empty x:key values and removes x:key attributes', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div><span id="a" x:key=""></span><span id="b" x:key="b"></span></div>');
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const keys = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');

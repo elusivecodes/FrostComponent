@@ -23,6 +23,7 @@ test.describe('Dynamic source URLs', () => {
         );
 
         await page.setContent('<x-component></x-component><x-component></x-component>');
+        await page.waitForFunction(() => window._sourceStacks?.length === 2);
 
         const stacks = await page.evaluate(() => window._sourceStacks);
         const urls = stacks.map((stack) => stack.match(
@@ -66,6 +67,7 @@ test.describe('Dynamic source URLs', () => {
                 return 1;
             }
         })()"></x-component>`);
+        await page.waitForFunction(() => typeof window._stateStack === 'string');
 
         const stack = await page.evaluate(() => window._stateStack);
         expect(stack).toMatch(

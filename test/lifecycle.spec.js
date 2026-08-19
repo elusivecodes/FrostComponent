@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { defineComponent, initializePage, attachMethod } from './support/utils.js';
+import { defineComponent, flushTasks, initializePage, attachMethod, waitForComponent } from './support/utils.js';
 
 test.describe('Component lifecycle', () => {
     test.beforeEach(async ({ page }) => {
@@ -37,6 +37,7 @@ test.describe('Component lifecycle', () => {
     test('runs effects when state changes and component is mounted', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div></div>');
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -61,6 +62,7 @@ test.describe('Component lifecycle', () => {
     test('runs effects when waitForVisible is false', async ({ page }) => {
         await defineComponent(page, 'x-component', 'XComponent', '<div></div>');
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -118,9 +120,11 @@ test.describe('Component lifecycle', () => {
         await attachMethod(page, 'XDefer', 'initialize', function() {
             this.deferLoad(window._deferOne);
             this.deferLoad(window._deferTwo);
+            window._deferred = true;
         });
 
         await page.evaluate(() => {
+            window._deferred = false;
             window._resolveOne = null;
             window._resolveTwo = null;
             window._deferOne = new Promise((resolve) => {
@@ -138,10 +142,10 @@ test.describe('Component lifecycle', () => {
             document.body.appendChild(el);
         });
 
-        await page.waitForFunction(() => window._loaded === false);
+        await page.waitForFunction(() => window._deferred === true);
 
         await page.evaluate(() => window._resolveOne());
-        await page.waitForTimeout(20);
+        await flushTasks(page);
 
         const loadedAfterFirst = await page.evaluate(() => window._loaded);
         expect(loadedAfterFirst).toBe(false);
@@ -255,11 +259,11 @@ test.describe('Component lifecycle', () => {
                 parent.state.show = false;
             }, { once: true });
 
-            document.body.appendChild(parent);
-
-            await new Promise((resolve) => {
+            const loadedPromise = new Promise((resolve) => {
                 parent.addEventListener('loaded', resolve, { once: true });
             });
+            document.body.appendChild(parent);
+            await loadedPromise;
 
             return {
                 childCount: document.querySelectorAll('x-child').length,

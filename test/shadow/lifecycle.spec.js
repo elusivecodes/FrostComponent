@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { initializePage } from '../support/utils.js';
+import { flushTasks, initializePage } from '../support/utils.js';
 
 test.describe('Shadow mode', () => {
     test.beforeEach(async ({ page }) => {
@@ -29,6 +29,7 @@ test.describe('Shadow mode', () => {
                     body: `
                         <script>
                             this.deferLoad(window._childLoadPromise);
+                            window._childDeferred = true;
                         </script>
                         <!-- shadow -->
                         <div id="child">child</div>
@@ -41,6 +42,7 @@ test.describe('Shadow mode', () => {
         });
 
         await page.evaluate(() => {
+            window._childDeferred = false;
             window._resolveChildLoad = null;
             window._childLoadPromise = new Promise((resolve) => {
                 window._resolveChildLoad = resolve;
@@ -50,10 +52,7 @@ test.describe('Shadow mode', () => {
             document.body.innerHTML = '<x-parent></x-parent>';
         });
 
-        await page.waitForFunction(() => {
-            const parent = document.querySelector('x-parent');
-            return parent && parent.renderRoot instanceof ShadowRoot;
-        });
+        await page.waitForFunction(() => window._childDeferred === true);
 
         const parentLoadedBefore = await page.evaluate(() => {
             const parent = document.querySelector('x-parent');
@@ -94,6 +93,7 @@ test.describe('Shadow mode', () => {
                     body: `
                         <script>
                             this.deferLoad(window._aPromise);
+                            window._deferredA = true;
                         </script>
                         <!-- shadow -->
                         <div id="a">a</div>
@@ -108,6 +108,7 @@ test.describe('Shadow mode', () => {
                     body: `
                         <script>
                             this.deferLoad(window._bPromise);
+                            window._deferredB = true;
                         </script>
                         <div id="b">b</div>
                     `,
@@ -119,6 +120,8 @@ test.describe('Shadow mode', () => {
         });
 
         await page.evaluate(() => {
+            window._deferredA = false;
+            window._deferredB = false;
             window._resolveA = null;
             window._resolveB = null;
             window._aPromise = new Promise((resolve) => {
@@ -132,10 +135,7 @@ test.describe('Shadow mode', () => {
             document.body.innerHTML = '<x-parent></x-parent>';
         });
 
-        await page.waitForFunction(() => {
-            const parent = document.querySelector('x-parent');
-            return parent && parent.renderRoot instanceof ShadowRoot;
-        });
+        await page.waitForFunction(() => window._deferredA && window._deferredB);
 
         const loadedBefore = await page.evaluate(() => {
             const parent = document.querySelector('x-parent');
@@ -144,7 +144,7 @@ test.describe('Shadow mode', () => {
         expect(loadedBefore).toBe(false);
 
         await page.evaluate(() => window._resolveA());
-        await page.waitForTimeout(20);
+        await flushTasks(page);
 
         const loadedAfterA = await page.evaluate(() => {
             const parent = document.querySelector('x-parent');

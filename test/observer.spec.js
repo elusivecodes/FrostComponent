@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { test, expect } from '@playwright/test';
-import { attachMethod, defineComponent, initializePage } from './support/utils.js';
+import { attachMethod, defineComponent, flushTasks, initializePage } from './support/utils.js';
 
 const distPath = path.resolve('dist/frost-component.js');
 
@@ -297,7 +297,7 @@ test.describe('Component observers', () => {
             document.querySelector('#target').appendChild(document.querySelector('#root'));
         });
 
-        await page.waitForTimeout(30);
+        await flushTasks(page);
         expect(await page.evaluate(() => window._mountEvents)).toEqual(['mounted']);
     });
 
@@ -402,7 +402,7 @@ test.describe('Component observers', () => {
             document.querySelector('#second').appendChild(document.querySelector('x-shadow'));
         });
 
-        await page.waitForTimeout(30);
+        await flushTasks(page);
 
         const result = await page.evaluate(() => ({
             mountCount: window._mountCount,

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { attachMethod, defineComponent, initializePage } from './support/utils.js';
+import { attachMethod, defineComponent, initializePage, waitForComponent } from './support/utils.js';
 
 test.describe('Component event bindings', () => {
     test.beforeEach(async ({ page }) => {
@@ -13,6 +13,7 @@ test.describe('Component event bindings', () => {
         });
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -31,6 +32,7 @@ test.describe('Component event bindings', () => {
         await defineComponent(page, 'x-component', 'XComponent', '<button @click="() => { this.state.count = (this.state.count || 0) + 1; }"></button>');
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const count = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -45,6 +47,7 @@ test.describe('Component event bindings', () => {
         await defineComponent(page, 'x-component', 'XComponent', '<button @click="async function(event) { await Promise.resolve(); this.state.eventType = event.type; }"></button>');
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const root = page.locator('[x\\:component="x-component"]');
         await root.click();
@@ -79,6 +82,7 @@ test.describe('Component event bindings', () => {
         await defineComponent(page, 'x-component', 'XComponent', '<button @click></button>');
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -95,6 +99,7 @@ test.describe('Component event bindings', () => {
         });
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const defaultPrevented = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -113,6 +118,7 @@ test.describe('Component event bindings', () => {
         });
 
         await page.setContent('<div id="wrap"><x-component></x-component></div>');
+        await waitForComponent(page, 'x-component');
 
         const result = await page.evaluate(() => {
             const wrap = document.querySelector('#wrap');
@@ -141,6 +147,7 @@ test.describe('Component event bindings', () => {
         });
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const clicked = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -159,6 +166,7 @@ test.describe('Component event bindings', () => {
         });
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -182,6 +190,7 @@ test.describe('Component event bindings', () => {
         });
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const eventPhase = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
@@ -201,6 +210,7 @@ test.describe('Component event bindings', () => {
         });
 
         await page.setContent('<x-component></x-component>');
+        await waitForComponent(page, 'x-component');
 
         const defaultPrevented = await page.evaluate(() => {
             const root = document.querySelector('[x\\:component="x-component"]');
