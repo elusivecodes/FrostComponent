@@ -47,7 +47,7 @@
         "js-lint": "eslint",
         "js-minify": "terser --compress passes=2 --mangle --source-map \"content=dist/frost-component.js.map,url=frost-component.min.js.map\" --output dist/frost-component.min.js dist/frost-component.js",
         "test": "npm run build && npm run test:browser",
-        "test:browser": "playwright test"
+        "test:browser": "playwright test --forbid-only"
     },
     "dependencies": {
         "@fr0st/state": "^1.0"

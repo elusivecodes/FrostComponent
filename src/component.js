@@ -201,7 +201,7 @@ export default class Component extends HTMLElement {
         // don't initialize slot components until they have been assigned
         if (parentComponent && parentComponent.contains(this) && parentComponent.renderRoot === parentComponent.rootElement) {
             parentComponent.addEventListener('initialized', () => {
-                if (this.#connected || parentComponent.renderRoot !== parentComponent.rootElement || !parentComponent.contains(this)) {
+                if (this.#connected || !parentComponent.contains(this)) {
                     return;
                 }
 

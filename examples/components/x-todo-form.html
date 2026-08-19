@@ -1,5 +1,55 @@
 <!-- shadow -->
 
+<style>
+    :host {
+        display: block;
+    }
+
+    form {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    input,
+    button {
+        box-sizing: border-box;
+        font: inherit;
+    }
+
+    input {
+        min-width: 0;
+        flex: 1;
+        padding: 0.75rem 0.875rem;
+        border: 1px solid var(--todo-border, #cbd5e1);
+        border-radius: 0.5rem;
+        color: inherit;
+    }
+
+    input:focus {
+        border-color: var(--todo-accent, #2563eb);
+        outline: 3px solid color-mix(in srgb, var(--todo-accent, #2563eb) 20%, transparent);
+    }
+
+    button {
+        padding: 0.75rem 1rem;
+        border: 0;
+        border-radius: 0.5rem;
+        background: var(--todo-accent, #2563eb);
+        color: #fff;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    button:hover {
+        filter: brightness(0.9);
+    }
+
+    button:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--todo-accent, #2563eb) 30%, transparent);
+        outline-offset: 2px;
+    }
+</style>
+
 <form @submit.prevent="{ this.dispatch('save') }">
     <input type="text" x:bind="text" />
     <button type="submit">Add</button>

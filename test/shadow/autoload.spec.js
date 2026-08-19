@@ -120,6 +120,72 @@ test.describe('Shadow mode', () => {
         expect(childText).toBe('late');
     });
 
+    test('initializes a nested shadow component defined before its shadow parent', async ({ page }) => {
+        let resolveParent;
+        const parentGate = new Promise((resolve) => {
+            resolveParent = resolve;
+        });
+
+        await page.route('**/components/*', async (route) => {
+            const url = route.request().url();
+            if (url.endsWith('/x-parent')) {
+                await parentGate;
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <!-- shadow -->
+                        <div>
+                            <slot></slot>
+                        </div>
+                    `,
+                });
+                return;
+            }
+            if (url.endsWith('/x-child')) {
+                await route.fulfill({
+                    status: 200,
+                    contentType: 'text/html',
+                    body: `
+                        <!-- shadow -->
+                        <style>
+                            #child { color: red; }
+                        </style>
+                        <div id="child">child first</div>
+                    `,
+                });
+                return;
+            }
+
+            await route.fulfill({ status: 404 });
+        });
+
+        await page.evaluate(() => {
+            window.Component.bootstrap({ baseUrl: 'http://test.local/components' });
+            document.body.innerHTML = '<x-parent><x-child></x-child></x-parent>';
+        });
+
+        await page.waitForFunction(() => {
+            const child = document.querySelector('x-child');
+            return child?.shadowRoot?.querySelector('style') && !child.initialized;
+        });
+
+        resolveParent();
+
+        await page.waitForFunction(() => {
+            const parent = document.querySelector('x-parent');
+            const child = parent?.querySelector('x-child');
+            return parent?.loaded && child?.loaded && !!child.renderRoot.querySelector('#child');
+        });
+
+        const childText = await page.evaluate(() => {
+            const child = document.querySelector('x-child');
+            return child?.renderRoot?.querySelector('#child')?.textContent ?? null;
+        });
+
+        expect(childText).toBe('child first');
+    });
+
     test('autoloads components added to a shadow root after mount', async ({ page }) => {
         await page.route('**/components/*', async (route) => {
             const url = route.request().url();

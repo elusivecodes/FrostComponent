@@ -19,6 +19,30 @@
     });
 </script>
 
+<style>
+    :host {
+        --todo-accent: #2563eb;
+        --todo-border: #cbd5e1;
+        --todo-muted: #64748b;
+
+        display: block;
+        width: min(32rem, calc(100% - 2rem));
+        margin: 3rem auto;
+        color: #0f172a;
+        font-family: system-ui, sans-serif;
+    }
+
+    div {
+        display: grid;
+        gap: 1rem;
+        padding: 1.25rem;
+        border: 1px solid var(--todo-border);
+        border-radius: 0.75rem;
+        background: #f8fafc;
+        box-shadow: 0 0.75rem 2rem rgb(15 23 42 / 10%);
+    }
+</style>
+
 <div>
     <x-todo-list @remove="(e) => {
         this.state.items = this.state.items.filter(item => item.id !== e.target.state.id);
