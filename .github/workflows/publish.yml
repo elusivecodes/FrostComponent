@@ -32,8 +32,11 @@ jobs:
       - name: Lint
         run: npm run js-lint
 
-      - name: Build and run tests
-        run: npm test -- --project=chromium
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm run test:browser -- --project=chromium
 
       - name: Validate package contents
         run: npm pack --dry-run
