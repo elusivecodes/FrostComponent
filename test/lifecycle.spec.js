@@ -176,9 +176,11 @@ test.describe('Component lifecycle', () => {
         await defineComponent(page, 'x-reject', 'XReject', '<div></div>');
         await attachMethod(page, 'XReject', 'initialize', function() {
             this.deferLoad(window._rejectPromise);
+            window._deferred = true;
         });
 
         await page.evaluate(() => {
+            window._deferred = false;
             window._loaded = false;
             window._unhandled = null;
 
@@ -198,6 +200,7 @@ test.describe('Component lifecycle', () => {
             document.body.appendChild(el);
         });
 
+        await page.waitForFunction(() => window._deferred === true);
         await page.evaluate(() => window._reject(new Error('boom')));
 
         await page.waitForFunction(() => window._loaded === true);
