@@ -1,9 +1,9 @@
+/** @import { default as Component } from './component.js'; */
+
 import { bind } from './bind.js';
 import { evaluator } from './evaluator.js';
 import { isComponent, skipSubtree } from './helpers.js';
 import { setInitialState } from './vars.js';
-
-/** @typedef {import('./component.js').default} Component */
 
 /**
  * @typedef {object} ConditionalCase

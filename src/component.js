@@ -1,3 +1,5 @@
+/** @import { SlotDefinition } from './slots.js'; */
+
 import { StateStore, useEffect } from '@fr0st/state';
 import { bind } from './bind.js';
 import { parseBlocks, processConditionals, processLoops } from './blocks.js';
@@ -417,7 +419,7 @@ export default class Component extends HTMLElement {
     /**
      * Gets a slot definition.
      * @param {string} [name=''] The slot name.
-     * @returns {import('./slots.js').SlotDefinition|undefined} The slot definition, or `undefined` if the slot is missing.
+     * @returns {SlotDefinition | undefined} The slot definition, or `undefined` if the slot is missing.
      */
     getSlot(name = '') {
         return this.#slots[name];

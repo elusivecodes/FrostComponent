@@ -1,4 +1,4 @@
-/** @typedef {import('./component.js').default} Component */
+/** @import { default as Component } from './component.js'; */
 
 /**
  * @typedef {object} SlotDefinition
@@ -11,7 +11,7 @@
 /**
  * Replaces descendant `<slot>` elements with comment markers.
  * @param {Element} element The element to scan for slots.
- * @returns {Object<string, SlotDefinition>} The slot map keyed by slot name.
+ * @returns {Record<string, SlotDefinition>} The slot map keyed by slot name.
  */
 export function parseSlots(element) {
     const slotMarkers = [...element.querySelectorAll('slot')]

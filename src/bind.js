@@ -1,8 +1,8 @@
+/** @import { default as Component } from './component.js'; */
+
 import { evaluator } from './evaluator.js';
 import { createFunction, findPropertyOwner, isComponent, isEmpty, isPlainObject, skipSubtree } from './helpers.js';
 import { booleanAttributes, setInitialState } from './vars.js';
-
-/** @typedef {import('./component.js').default} Component */
 
 /**
  * Binds an element subtree to a component.

@@ -1,5 +1,5 @@
-import { test, expect } from '@playwright/test';
-import { defineComponent, initializePage, attachMethod } from './support/utils.js';
+import { expect, test } from '@playwright/test';
+import { attachMethod, defineComponent, initializePage } from './support/utils.js';
 
 test.describe('Suspense component', () => {
     test.beforeEach(async ({ page }) => {

@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { attachMethod, defineComponent, flushTasks, initializePage } from './support/utils.js';
 
 const distPath = path.resolve('dist/frost-component.js');

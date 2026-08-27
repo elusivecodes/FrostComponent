@@ -26,17 +26,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Install Playwright browsers
+      - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
       - name: Lint
-        run: npm run js-lint
+        run: npm run lint
 
       - name: Build
         run: npm run build
 
       - name: Run tests
-        run: npm run test:browser -- --project=chromium
+        run: npm run test:browser -- --project=chromium --workers=4
 
       - name: Validate package contents
         run: npm pack --dry-run

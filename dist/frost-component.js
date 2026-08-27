@@ -5,17 +5,24 @@
 })(this, (function () { 'use strict';
 
     /**
-     * Checks whether a value is a plain object constructed by `Object`.
-     * Values with a null prototype and class instances return `false`.
+     * Checks whether a value has `Object.prototype`.
+     * Values with a null prototype, arrays, and class instances return `false`.
      * @param {*} value The value to test.
      * @returns {boolean} Whether the value is a plain object.
      */
     function isPlainObject$1(value) {
-        return value?.constructor === Object;
+        return value !== null &&
+            typeof value === 'object' &&
+            Object.getPrototypeOf(value) === Object.prototype;
     }
 
     const activeEffects = [];
     const effectNextStates = new WeakMap();
+    const stateEffects = new WeakMap();
+
+    const removeEffect = (state, effect) => {
+        stateEffects.get(state)?.delete(effect);
+    };
 
     /**
      * Checks whether state reads are currently being tracked by an active effect.
@@ -38,11 +45,11 @@
     /**
      * Registers a reactive effect that runs immediately and re-runs when any state
      * read inside the callback changes.
-     * Re-execution is scheduled in a microtask unless `.sync()` is used.
+     * Re-execution is coalesced in a microtask unless `.sync()` is used.
      * @param {Function} callback The callback function.
      * @param {{ weak?: boolean }} [options] The effect options.
      * @param {boolean} [options.weak=false] Whether to use a WeakRef for the effect runner.
-     * @returns {Function} The wrapped effect runner.
+     * @returns {Function & { sync: Function, stop: Function }} The wrapped effect runner.
      * @throws {Error} If the effect synchronously triggers itself.
      * @throws {*} Re-throws any error thrown by `callback`.
      */
@@ -50,7 +57,19 @@
         const prevStates = new Set();
         const nextStates = new Set();
 
+        const removeFromStates = (states) => {
+            for (const state of states) {
+                removeEffect(state, ref);
+            }
+
+            states.clear();
+        };
+
         const wrapped = () => {
+            if (stopped) {
+                return;
+            }
+
             if (activeEffects.includes(ref)) {
                 throw new Error('Cannot trigger an effect inside itself');
             }
@@ -62,7 +81,7 @@
             } catch (error) {
                 for (const state of nextStates) {
                     if (!prevStates.has(state)) {
-                        state.effects.delete(ref);
+                        removeEffect(state, ref);
                     }
                 }
 
@@ -75,7 +94,7 @@
 
             for (const state of prevStates) {
                 if (!nextStates.has(state)) {
-                    state.effects.delete(ref);
+                    removeEffect(state, ref);
                 }
             }
 
@@ -88,30 +107,56 @@
             nextStates.clear();
         };
 
-        let running;
+        let running = false;
+        let scheduledJob;
         let pending = false;
+        let stopped = false;
         const debounced = () => {
+            if (stopped) {
+                return;
+            }
+
             if (running) {
                 pending = true;
                 return;
             }
 
-            running = true;
+            if (scheduledJob) {
+                return;
+            }
 
-            Promise.resolve()
-                .then(() => {
+            const job = {};
+
+            scheduledJob = job;
+
+            queueMicrotask(() => {
+                if (stopped || scheduledJob !== job) {
+                    return;
+                }
+
+                scheduledJob = undefined;
+                running = true;
+
+                try {
                     wrapped();
-                })
-                .finally(() => {
+                } finally {
                     running = false;
-                    if (pending) {
+
+                    if (!stopped && pending) {
                         pending = false;
                         debounced();
+                    } else {
+                        pending = false;
                     }
-                });
+                }
+            });
         };
 
-        debounced.sync = wrapped;
+        debounced.sync = () => {
+            scheduledJob = undefined;
+            pending = false;
+            wrapped();
+        };
 
         const ref = weak ?
             new WeakRef(debounced) :
@@ -119,7 +164,25 @@
 
         effectNextStates.set(ref, nextStates);
 
-        wrapped();
+        debounced.stop = () => {
+            if (stopped) {
+                return;
+            }
+
+            stopped = true;
+            scheduledJob = undefined;
+            pending = false;
+            removeFromStates(prevStates);
+            removeFromStates(nextStates);
+            effectNextStates.delete(ref);
+        };
+
+        try {
+            wrapped();
+        } catch (error) {
+            debounced.stop();
+            throw error;
+        }
 
         return debounced;
     }
@@ -136,11 +199,11 @@
         const get = (markEffects = true) => {
             if (markEffects && activeEffects.length) {
                 const activeEffect = activeEffects.at(-1);
+                const states = effectNextStates.get(activeEffect);
 
-                effects.add(activeEffect);
-
-                if (effectNextStates.has(activeEffect)) {
-                    effectNextStates.get(activeEffect).add(state);
+                if (states) {
+                    effects.add(activeEffect);
+                    states.add(state);
                 }
             }
 
@@ -177,16 +240,7 @@
         state[Symbol.toPrimitive] = get;
         state.get = get;
         state.set = set;
-
-        state.cleanup = () => {
-            if (!activeEffects.length) {
-                return;
-            }
-            const activeEffect = activeEffects.at(-1);
-            if (effectNextStates.has(activeEffect) && !effectNextStates.get(activeEffect).has(state)) {
-                effects.delete(activeEffect);
-            }
-        };
+        stateEffects.set(state, effects);
 
         Object.defineProperty(state, 'previous', {
             get: () => previous,
@@ -195,10 +249,6 @@
         Object.defineProperty(state, 'value', {
             get,
             set,
-        });
-
-        Object.defineProperty(state, 'effects', {
-            get: () => effects,
         });
 
         return state;
@@ -242,26 +292,12 @@
                 throw new TypeError('First argument must be a StateStore instance');
             }
 
-            if (!isPlainObject$1(value)) {
-                return value;
-            }
-
-            for (const [key, val] of Object.entries(value)) {
-                store[key] = options.deep ?
-                    StateStore.merge(
-                        store.has(key) ?
-                            store.use(key).value :
-                            undefined,
-                        val,
-                        {
-                            ...options,
-                            allowFallback: true,
-                        },
-                    ) :
-                    val;
-            }
-
-            return store;
+            return StateStore.#mergeValue(
+                store,
+                value,
+                Boolean(options.deep),
+                new WeakMap(),
+            );
         }
 
         /**
@@ -279,19 +315,12 @@
                 return value;
             }
 
-            if (!isPlainObject$1(value)) {
-                return value;
-            }
-
-            const store = new StateStore();
-
-            for (const [key, val] of Object.entries(value)) {
-                store[key] = options.deep ?
-                    StateStore.wrap(val, options) :
-                    val;
-            }
-
-            return store;
+            return StateStore.#mergeValue(
+                undefined,
+                value,
+                Boolean(options.deep),
+                new WeakMap(),
+            );
         }
 
         static #isReservedStateKey(key) {
@@ -300,18 +329,42 @@
             );
         }
 
+        static #mergeValue(store, value, deep, stores) {
+            if (!isPlainObject$1(value)) {
+                return value;
+            }
+
+            if (stores.has(value)) {
+                return stores.get(value);
+            }
+
+            const target = store instanceof StateStore ? store : new StateStore();
+
+            stores.set(value, target);
+
+            for (const [key, val] of Object.entries(value)) {
+                const current = target.has(key) ? target.use(key).get(false) : undefined;
+
+                target[key] = deep ?
+                    StateStore.#mergeValue(current, val, true, stores) :
+                    val;
+            }
+
+            return target;
+        }
+
         /**
          * Creates a new callable `StateStore` proxy.
          */
         constructor() {
             super();
 
-            return new Proxy(
+            const proxy = new Proxy(
                 this,
                 {
                     apply(target, thisArg, args) {
                         if (!args.length) {
-                            return target;
+                            return proxy;
                         }
 
                         return target.use(...args);
@@ -345,7 +398,7 @@
                                 configurable: true,
                                 enumerable: true,
                                 writable: true,
-                                value: target.use(prop).value,
+                                value: target.#state.get(prop).get(false),
                             };
                         }
 
@@ -377,6 +430,8 @@
                     },
                 },
             );
+
+            return proxy;
         }
 
         /**
@@ -403,7 +458,15 @@
          * @throws {TypeError} If `data` contains a reserved `StateStore` key.
          */
         set(data) {
-            for (const [key, value] of Object.entries(data)) {
+            const entries = Object.entries(data);
+
+            for (const [key] of entries) {
+                if (StateStore.#isReservedStateKey(key)) {
+                    throw new TypeError(`"${key}" is a reserved StateStore key`);
+                }
+            }
+
+            for (const [key, value] of entries) {
                 this.#assignKey(key, value);
             }
         }
@@ -478,7 +541,7 @@
         }
     }
 
-    /** @typedef {import('./component.js').default} Component */
+    /** @import { default as Component } from './component.js'; */
 
     /**
      * Finds child components rendered within an element subtree.
@@ -695,7 +758,8 @@
         );
     }
 
-    /** @typedef {import('./component.js').default} Component */
+    /** @import { default as Component } from './component.js'; */
+
 
     const textarea = document.createElement('textarea');
 
@@ -726,6 +790,8 @@
 
         return () => component.state(expression, defaultValue).value;
     }
+
+    /** @import { default as Component } from './component.js'; */
 
     /**
      * Boolean attributes defined by the HTML standard.
@@ -764,13 +830,13 @@
         'shadowrootserializable',
     ]);
 
-    /** @type {Object<string, boolean>} */
+    /** @type {Record<string, boolean>} */
     const loaded = {};
 
-    /** @type {Object<string, Promise<void>>} */
+    /** @type {Record<string, Promise<void>>} */
     const loadedScripts = {};
 
-    /** @type {Object<string, Promise<void>>} */
+    /** @type {Record<string, Promise<void>>} */
     const loadedStylesheets = {};
 
     const initialStates = new WeakMap();
@@ -803,7 +869,7 @@
 
     /**
      * Gets the cached shadow style blocks for a component class.
-     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+     * @param {typeof Component} ComponentClass The component constructor.
      * @returns {HTMLStyleElement[]} The cached style blocks.
      */
     function getShadowStyleBlocks(ComponentClass) {
@@ -819,7 +885,7 @@
 
     /**
      * Gets the cached shadow stylesheets for a component class.
-     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+     * @param {typeof Component} ComponentClass The component constructor.
      * @returns {HTMLLinkElement[]} The cached stylesheet links.
      */
     function getShadowStylesheets(ComponentClass) {
@@ -835,7 +901,7 @@
 
     /**
      * Sets the cached shadow assets for a component class.
-     * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+     * @param {typeof Component} ComponentClass The component constructor.
      * @param {object} [options] The shadow asset options.
      * @param {Iterable<HTMLStyleElement>} [options.styleBlocks=[]] The shadow style blocks.
      * @param {Iterable<HTMLLinkElement>} [options.stylesheets=[]] The shadow stylesheet links.
@@ -845,7 +911,8 @@
         shadowStylesheets.set(ComponentClass, [...stylesheets]);
     }
 
-    /** @typedef {import('./component.js').default} Component */
+    /** @import { default as Component } from './component.js'; */
+
 
     /**
      * Binds an element subtree to a component.
@@ -1320,7 +1387,8 @@
         });
     }
 
-    /** @typedef {import('./component.js').default} Component */
+    /** @import { default as Component } from './component.js'; */
+
 
     /**
      * @typedef {object} ConditionalCase
@@ -1634,7 +1702,7 @@
         return result;
     }
 
-    /** @typedef {import('./component.js').default} Component */
+    /** @import { default as Component } from './component.js'; */
 
     /**
      * @typedef {object} SlotDefinition
@@ -1647,7 +1715,7 @@
     /**
      * Replaces descendant `<slot>` elements with comment markers.
      * @param {Element} element The element to scan for slots.
-     * @returns {Object<string, SlotDefinition>} The slot map keyed by slot name.
+     * @returns {Record<string, SlotDefinition>} The slot map keyed by slot name.
      */
     function parseSlots(element) {
         const slotMarkers = [...element.querySelectorAll('slot')]
@@ -1719,7 +1787,8 @@
             slot.assign(element);
         }}
 
-    /** @typedef {import('./component.js').default} Component */
+    /** @import { default as Component } from './component.js'; */
+
 
     /**
      * Parses component state from non-framework attributes and removes them from the host.
@@ -1756,6 +1825,9 @@
             component.state.set(initialState);
         }
     }
+
+    /** @import { SlotDefinition } from './slots.js'; */
+
 
     /**
      * Base custom element class for Frost components.
@@ -2167,7 +2239,7 @@
         /**
          * Gets a slot definition.
          * @param {string} [name=''] The slot name.
-         * @returns {import('./slots.js').SlotDefinition|undefined} The slot definition, or `undefined` if the slot is missing.
+         * @returns {SlotDefinition | undefined} The slot definition, or `undefined` if the slot is missing.
          */
         getSlot(name = '') {
             return this.#slots[name];

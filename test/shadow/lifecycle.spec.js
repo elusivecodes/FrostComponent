@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { flushTasks, initializePage } from '../support/utils.js';
 
 test.describe('Shadow mode', () => {

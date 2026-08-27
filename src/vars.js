@@ -1,3 +1,5 @@
+/** @import { default as Component } from './component.js'; */
+
 /**
  * Boolean attributes defined by the HTML standard.
  * @type {Set<string>}
@@ -35,13 +37,13 @@ export const booleanAttributes = new Set([
     'shadowrootserializable',
 ]);
 
-/** @type {Object<string, boolean>} */
+/** @type {Record<string, boolean>} */
 export const loaded = {};
 
-/** @type {Object<string, Promise<void>>} */
+/** @type {Record<string, Promise<void>>} */
 export const loadedScripts = {};
 
-/** @type {Object<string, Promise<void>>} */
+/** @type {Record<string, Promise<void>>} */
 export const loadedStylesheets = {};
 
 const initialStates = new WeakMap();
@@ -74,7 +76,7 @@ export function takeInitialState(component) {
 
 /**
  * Gets the cached shadow style blocks for a component class.
- * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+ * @param {typeof Component} ComponentClass The component constructor.
  * @returns {HTMLStyleElement[]} The cached style blocks.
  */
 export function getShadowStyleBlocks(ComponentClass) {
@@ -90,7 +92,7 @@ export function getShadowStyleBlocks(ComponentClass) {
 
 /**
  * Gets the cached shadow stylesheets for a component class.
- * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+ * @param {typeof Component} ComponentClass The component constructor.
  * @returns {HTMLLinkElement[]} The cached stylesheet links.
  */
 export function getShadowStylesheets(ComponentClass) {
@@ -106,7 +108,7 @@ export function getShadowStylesheets(ComponentClass) {
 
 /**
  * Sets the cached shadow assets for a component class.
- * @param {typeof import('./component.js').default} ComponentClass The component constructor.
+ * @param {typeof Component} ComponentClass The component constructor.
  * @param {object} [options] The shadow asset options.
  * @param {Iterable<HTMLStyleElement>} [options.styleBlocks=[]] The shadow style blocks.
  * @param {Iterable<HTMLLinkElement>} [options.stylesheets=[]] The shadow stylesheet links.

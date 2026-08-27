@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 import { defineComponent, initializePage, updateState, waitForComponent } from './support/utils.js';
 
 test.describe('Component blocks', () => {

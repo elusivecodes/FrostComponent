@@ -1,4 +1,4 @@
-/** @typedef {import('./component.js').default} Component */
+/** @import { default as Component } from './component.js'; */
 
 /**
  * Finds child components rendered within an element subtree.

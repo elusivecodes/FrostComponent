@@ -506,7 +506,7 @@ The fallback stays visible until the child components finish loading, including 
 
 ```bash
 npm test
-npm run js-lint
+npm run lint
 npm run build
 ```
 

@@ -1,6 +1,6 @@
 {
     "name": "@fr0st/component",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "private": false,
     "description": "Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading.",
     "keywords": [
@@ -42,10 +42,10 @@
         "src"
     ],
     "scripts": {
-        "build": "npm run js-compile && npm run js-minify",
-        "js-compile": "rollup --config",
-        "js-lint": "eslint",
-        "js-minify": "terser --compress passes=2 --mangle --source-map \"content=dist/frost-component.js.map,url=frost-component.min.js.map\" --output dist/frost-component.min.js dist/frost-component.js",
+        "build": "npm run bundle && npm run minify",
+        "bundle": "rollup --config",
+        "lint": "eslint",
+        "minify": "terser --compress passes=2 --mangle --source-map \"content=dist/frost-component.js.map,url=frost-component.min.js.map\" --output dist/frost-component.min.js dist/frost-component.js",
         "test": "npm run build && npm run test:browser",
         "test:browser": "playwright test --forbid-only"
     },
@@ -53,7 +53,7 @@
         "@fr0st/state": "^1.0"
     },
     "devDependencies": {
-        "@fr0st/eslint-config": "^4.0.0",
+        "@fr0st/eslint-config": "^5.0.0",
         "@playwright/test": "^1.62.1",
         "@rollup/plugin-node-resolve": "^16.0.3",
         "eslint": "^10.8.1",

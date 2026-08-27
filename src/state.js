@@ -1,7 +1,7 @@
+/** @import { default as Component } from './component.js'; */
+
 import { createFunction, isPlainObject } from './helpers.js';
 import { takeInitialState } from './vars.js';
-
-/** @typedef {import('./component.js').default} Component */
 
 /**
  * Parses component state from non-framework attributes and removes them from the host.

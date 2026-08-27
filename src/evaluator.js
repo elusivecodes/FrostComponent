@@ -1,6 +1,6 @@
-import { createFunction } from './helpers.js';
+/** @import { default as Component } from './component.js'; */
 
-/** @typedef {import('./component.js').default} Component */
+import { createFunction } from './helpers.js';
 
 const textarea = document.createElement('textarea');
 
