@@ -10,8 +10,8 @@ Native JavaScript stateful web components with reactive bindings, slots, shadow 
 
 ## Highlights
 
-- Default ESM export for browser projects and bundlers
-- Browser UMD bundle in `dist/` exposed as `globalThis.Component`
+- Prebuilt ESM and UMD bundles in `dist/`
+- Browser UMD bundle exposed as `globalThis.Component`
 - No compilation step or virtual DOM
 - Reactive component state built on [`@fr0st/state`](https://www.npmjs.com/package/@fr0st/state)
 - HTML template autoloading for `x-*` elements
@@ -29,6 +29,25 @@ npm i @fr0st/component
 ```
 
 FrostComponent is ESM-only. Import the default `Component` export into browser-targeted bundles and apps.
+
+### Browser (ESM)
+
+The ESM bundle imports `@fr0st/state`. Map that dependency when loading the bundle directly in a browser:
+
+```html
+<script type="importmap">
+{
+    "imports": {
+        "@fr0st/state": "https://cdn.jsdelivr.net/npm/@fr0st/state@latest/dist/frost-state.esm.min.js"
+    }
+}
+</script>
+<script type="module">
+    import Component from 'https://cdn.jsdelivr.net/npm/@fr0st/component@latest/dist/frost-component.esm.min.js';
+
+    Component.bootstrap({ baseUrl: '/components', extension: 'html' });
+</script>
+```
 
 ### Browser (UMD)
 

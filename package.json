@@ -29,11 +29,17 @@
     "sideEffects": false,
     "type": "module",
     "exports": {
-        ".": "./src/index.js"
+        ".": {
+            "import": "./dist/frost-component.esm.js",
+            "default": "./dist/frost-component.esm.js"
+        },
+        "./dist/*": "./dist/*",
+        "./src/*": "./src/*"
     },
-    "main": "src/index.js",
-    "jsdelivr": "dist/frost-component.min.js",
-    "unpkg": "dist/frost-component.min.js",
+    "main": "./dist/frost-component.esm.js",
+    "jsdelivr": "./dist/frost-component.min.js",
+    "unpkg": "./dist/frost-component.min.js",
+    "module": "./dist/frost-component.esm.js",
     "files": [
         "dist",
         "examples",
@@ -42,10 +48,8 @@
         "src"
     ],
     "scripts": {
-        "build": "npm run bundle && npm run minify",
-        "bundle": "rollup --config",
+        "build": "vite build && vite build --mode umd",
         "lint": "eslint",
-        "minify": "terser --compress passes=2 --mangle --source-map \"content=dist/frost-component.js.map,url=frost-component.min.js.map\" --output dist/frost-component.min.js dist/frost-component.js",
         "test": "npm run build && npm run test:browser",
         "test:browser": "playwright test --forbid-only"
     },
@@ -55,10 +59,8 @@
     "devDependencies": {
         "@fr0st/eslint-config": "^5.0.0",
         "@playwright/test": "^1.62.1",
-        "@rollup/plugin-node-resolve": "^16.0.3",
         "eslint": "^10.8.1",
-        "rollup": "^4.62.4",
-        "terser": "^5.50.0"
+        "vite": "^8.2.2"
     },
     "engines": {
         "node": "^20.19.0 || ^22.13.0 || >=24"
