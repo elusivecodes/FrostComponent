@@ -3,7 +3,7 @@
 [![CI](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml/badge.svg)](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/%40fr0st%2Fcomponent?style=flat-square)](https://www.npmjs.com/package/@fr0st/component)
 [![npm downloads](https://img.shields.io/npm/dm/%40fr0st%2Fcomponent?style=flat-square)](https://www.npmjs.com/package/@fr0st/component)
-[![minzipped size](https://img.shields.io/bundlejs/size/%40fr0st%2Fcomponent?format=minzip&style=flat-square)](https://bundlejs.com/?q=@fr0st/component)
+[![JS gzip size](https://img.badgesize.io/elusivecodes/FrostComponent/main/dist/frost-component.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/elusivecodes/FrostComponent/blob/main/dist/frost-component.min.js)
 [![license](https://img.shields.io/github/license/elusivecodes/FrostComponent?style=flat-square)](./LICENSE)
 
 Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading, with dynamic component loading and no compilation step.
