@@ -1,7 +1,6 @@
 import { findComponentChain, flattenElements, isComponent } from './helpers.js';
-import { load } from './loader.js';
+import { load, registerLoadedResources } from './loader.js';
 import Suspense from './suspense.js';
-import { loadedScripts, loadedStylesheets } from './vars.js';
 
 const mountedComponents = new WeakSet();
 const observedNodes = new WeakSet();
@@ -125,31 +124,7 @@ const dismountNode = (node) => {
 const bootstrapCallback = () => {
     const elements = document.body.querySelectorAll(':not(script, link[rel="stylesheet"], style)');
 
-    for (const script of document.querySelectorAll('script[src]')) {
-        if (!script.getAttribute('src')?.trim()) {
-            continue;
-        }
-
-        const src = script.src;
-        if (src in loadedScripts) {
-            continue;
-        }
-
-        loadedScripts[src] = Promise.resolve();
-    }
-
-    for (const stylesheet of document.querySelectorAll('link[rel="stylesheet"]')) {
-        if (!stylesheet.getAttribute('href')?.trim()) {
-            continue;
-        }
-
-        const href = stylesheet.href;
-        if (href in loadedStylesheets) {
-            continue;
-        }
-
-        loadedStylesheets[href] = Promise.resolve();
-    }
+    registerLoadedResources();
 
     if (!intersectionObserver) {
         intersectionObserver = new IntersectionObserver((entries) => {

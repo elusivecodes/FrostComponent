@@ -1,0 +1,48 @@
+/** @import { default as Component } from './component.js'; */
+
+const shadowStyleBlocks = new WeakMap();
+const shadowStylesheets = new WeakMap();
+
+/**
+ * Gets the cached shadow style blocks for a component class.
+ * @param {typeof Component} ComponentClass The component constructor.
+ * @returns {HTMLStyleElement[]} The cached style blocks.
+ */
+export function getShadowStyleBlocks(ComponentClass) {
+    let styleBlocks = shadowStyleBlocks.get(ComponentClass);
+
+    if (!styleBlocks) {
+        styleBlocks = [];
+        shadowStyleBlocks.set(ComponentClass, styleBlocks);
+    }
+
+    return styleBlocks;
+};
+
+/**
+ * Gets the cached shadow stylesheets for a component class.
+ * @param {typeof Component} ComponentClass The component constructor.
+ * @returns {HTMLLinkElement[]} The cached stylesheet links.
+ */
+export function getShadowStylesheets(ComponentClass) {
+    let stylesheets = shadowStylesheets.get(ComponentClass);
+
+    if (!stylesheets) {
+        stylesheets = [];
+        shadowStylesheets.set(ComponentClass, stylesheets);
+    }
+
+    return stylesheets;
+};
+
+/**
+ * Sets the cached shadow assets for a component class.
+ * @param {typeof Component} ComponentClass The component constructor.
+ * @param {object} [options] The shadow asset options.
+ * @param {Iterable<HTMLStyleElement>} [options.styleBlocks=[]] The shadow style blocks.
+ * @param {Iterable<HTMLLinkElement>} [options.stylesheets=[]] The shadow stylesheet links.
+ */
+export function setShadowAssets(ComponentClass, { styleBlocks = [], stylesheets = [] } = {}) {
+    shadowStyleBlocks.set(ComponentClass, [...styleBlocks]);
+    shadowStylesheets.set(ComponentClass, [...stylesheets]);
+};

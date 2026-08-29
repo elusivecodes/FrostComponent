@@ -2,7 +2,44 @@
 
 import { evaluator } from './evaluator.js';
 import { createFunction, findPropertyOwner, isComponent, isEmpty, isPlainObject, skipSubtree } from './helpers.js';
-import { booleanAttributes, setInitialState } from './vars.js';
+import { setInitialState } from './state.js';
+
+/**
+ * Boolean attributes defined by the HTML standard.
+ * @type {Set<string>}
+ */
+const booleanAttributes = new Set([
+    'allowfullscreen',
+    'alpha',
+    'async',
+    'autofocus',
+    'autoplay',
+    'checked',
+    'controls',
+    'default',
+    'defer',
+    'disabled',
+    'formnovalidate',
+    'headingreset',
+    'inert',
+    'ismap',
+    'itemscope',
+    'loop',
+    'multiple',
+    'muted',
+    'nomodule',
+    'novalidate',
+    'open',
+    'playsinline',
+    'readonly',
+    'required',
+    'reversed',
+    'selected',
+    'shadowrootclonable',
+    'shadowrootcustomelementregistry',
+    'shadowrootdelegatesfocus',
+    'shadowrootserializable',
+]);
 
 /**
  * Binds an element subtree to a component.

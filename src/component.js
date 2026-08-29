@@ -5,9 +5,9 @@ import { bind } from './bind.js';
 import { parseBlocks, processConditionals, processLoops } from './blocks.js';
 import { parseElements } from './element.js';
 import { findChildren, findParent, isComponent } from './helpers.js';
+import { getShadowStyleBlocks, getShadowStylesheets } from './shadow-assets.js';
 import { parseSlots, processSlots } from './slots.js';
 import { parseState } from './state.js';
-import { getShadowStyleBlocks, getShadowStylesheets } from './vars.js';
 
 /**
  * Base custom element class for Frost components.

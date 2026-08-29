@@ -3,7 +3,7 @@
 import { bind } from './bind.js';
 import { evaluator } from './evaluator.js';
 import { isComponent, skipSubtree } from './helpers.js';
-import { setInitialState } from './vars.js';
+import { setInitialState } from './state.js';
 
 /**
  * @typedef {object} ConditionalCase

@@ -1,7 +1,32 @@
 /** @import { default as Component } from './component.js'; */
 
 import { createFunction, isPlainObject } from './helpers.js';
-import { takeInitialState } from './vars.js';
+
+const initialStates = new WeakMap();
+
+/**
+ * Adds initial state values for a component before it has initialized.
+ * @param {Element} component The component element.
+ * @param {object} values The state values to apply.
+ */
+export function setInitialState(component, values) {
+    const state = initialStates.get(component) || {};
+
+    Object.assign(state, values);
+    initialStates.set(component, state);
+};
+
+/**
+ * Consumes initial state values waiting for a component.
+ * @param {Element} component The component element.
+ * @returns {object|undefined} The pending state values, if any.
+ */
+function consumeInitialState(component) {
+    const state = initialStates.get(component);
+
+    initialStates.delete(component);
+    return state;
+};
 
 /**
  * Parses component state from non-framework attributes and removes them from the host.
@@ -33,7 +58,7 @@ export function parseState(component) {
         component.removeAttribute(attr.name);
     }
 
-    const initialState = takeInitialState(component);
+    const initialState = consumeInitialState(component);
     if (initialState) {
         component.state.set(initialState);
     }

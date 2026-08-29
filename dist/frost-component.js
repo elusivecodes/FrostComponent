@@ -556,7 +556,52 @@
 	}
 
 //#endregion
-//#region src/vars.js
+//#region src/state.js
+/** @import { default as Component } from './component.js'; */
+	var initialStates = /* @__PURE__ */ new WeakMap();
+	/**
+	* Adds initial state values for a component before it has initialized.
+	* @param {Element} component The component element.
+	* @param {object} values The state values to apply.
+	*/
+	function setInitialState(component, values) {
+		const state = initialStates.get(component) || {};
+		Object.assign(state, values);
+		initialStates.set(component, state);
+	}
+	/**
+	* Consumes initial state values waiting for a component.
+	* @param {Element} component The component element.
+	* @returns {object|undefined} The pending state values, if any.
+	*/
+	function consumeInitialState(component) {
+		const state = initialStates.get(component);
+		initialStates.delete(component);
+		return state;
+	}
+	/**
+	* Parses component state from non-framework attributes and removes them from the host.
+	* @param {Component} component The component to populate with state.
+	*/
+	function parseState(component) {
+		for (const attr of [...component.attributes]) {
+			if (attr.name === "slot" || attr.name.startsWith("x:")) continue;
+			let value;
+			try {
+				value = createFunction(component, ["state", attr.name], `return ${attr.value};`).call(component);
+			} catch {
+				value = attr.value;
+			}
+			if (attr.name === "state" && isPlainObject(value)) component.state.set(value);
+			else component.state[attr.name] = value;
+			component.removeAttribute(attr.name);
+		}
+		const initialState = consumeInitialState(component);
+		if (initialState) component.state.set(initialState);
+	}
+
+//#endregion
+//#region src/bind.js
 /** @import { default as Component } from './component.js'; */
 	/**
 	* Boolean attributes defined by the HTML standard.
@@ -594,76 +639,6 @@
 		"shadowrootdelegatesfocus",
 		"shadowrootserializable"
 	]);
-	/** @type {Record<string, boolean>} */
-	var loaded = {};
-	/** @type {Record<string, Promise<void>>} */
-	var loadedScripts = {};
-	/** @type {Record<string, Promise<void>>} */
-	var loadedStylesheets = {};
-	var initialStates = /* @__PURE__ */ new WeakMap();
-	var shadowStyleBlocks = /* @__PURE__ */ new WeakMap();
-	var shadowStylesheets = /* @__PURE__ */ new WeakMap();
-	/**
-	* Adds initial state values for a component before it has initialized.
-	* @param {Element} component The component element.
-	* @param {object} values The state values to apply.
-	*/
-	function setInitialState(component, values) {
-		const state = initialStates.get(component) || {};
-		Object.assign(state, values);
-		initialStates.set(component, state);
-	}
-	/**
-	* Takes and removes initial state values waiting for a component.
-	* @param {Element} component The component element.
-	* @returns {object|undefined} The pending state values, if any.
-	*/
-	function takeInitialState(component) {
-		const state = initialStates.get(component);
-		initialStates.delete(component);
-		return state;
-	}
-	/**
-	* Gets the cached shadow style blocks for a component class.
-	* @param {typeof Component} ComponentClass The component constructor.
-	* @returns {HTMLStyleElement[]} The cached style blocks.
-	*/
-	function getShadowStyleBlocks(ComponentClass) {
-		let styleBlocks = shadowStyleBlocks.get(ComponentClass);
-		if (!styleBlocks) {
-			styleBlocks = [];
-			shadowStyleBlocks.set(ComponentClass, styleBlocks);
-		}
-		return styleBlocks;
-	}
-	/**
-	* Gets the cached shadow stylesheets for a component class.
-	* @param {typeof Component} ComponentClass The component constructor.
-	* @returns {HTMLLinkElement[]} The cached stylesheet links.
-	*/
-	function getShadowStylesheets(ComponentClass) {
-		let stylesheets = shadowStylesheets.get(ComponentClass);
-		if (!stylesheets) {
-			stylesheets = [];
-			shadowStylesheets.set(ComponentClass, stylesheets);
-		}
-		return stylesheets;
-	}
-	/**
-	* Sets the cached shadow assets for a component class.
-	* @param {typeof Component} ComponentClass The component constructor.
-	* @param {object} [options] The shadow asset options.
-	* @param {Iterable<HTMLStyleElement>} [options.styleBlocks=[]] The shadow style blocks.
-	* @param {Iterable<HTMLLinkElement>} [options.stylesheets=[]] The shadow stylesheet links.
-	*/
-	function setShadowAssets(ComponentClass, { styleBlocks = [], stylesheets = [] } = {}) {
-		shadowStyleBlocks.set(ComponentClass, [...styleBlocks]);
-		shadowStylesheets.set(ComponentClass, [...stylesheets]);
-	}
-
-//#endregion
-//#region src/bind.js
-/** @import { default as Component } from './component.js'; */
 	/**
 	* Binds an element subtree to a component.
 	* @param {Component} component The component that owns bindings.
@@ -1178,6 +1153,49 @@
 	}
 
 //#endregion
+//#region src/shadow-assets.js
+/** @import { default as Component } from './component.js'; */
+	var shadowStyleBlocks = /* @__PURE__ */ new WeakMap();
+	var shadowStylesheets = /* @__PURE__ */ new WeakMap();
+	/**
+	* Gets the cached shadow style blocks for a component class.
+	* @param {typeof Component} ComponentClass The component constructor.
+	* @returns {HTMLStyleElement[]} The cached style blocks.
+	*/
+	function getShadowStyleBlocks(ComponentClass) {
+		let styleBlocks = shadowStyleBlocks.get(ComponentClass);
+		if (!styleBlocks) {
+			styleBlocks = [];
+			shadowStyleBlocks.set(ComponentClass, styleBlocks);
+		}
+		return styleBlocks;
+	}
+	/**
+	* Gets the cached shadow stylesheets for a component class.
+	* @param {typeof Component} ComponentClass The component constructor.
+	* @returns {HTMLLinkElement[]} The cached stylesheet links.
+	*/
+	function getShadowStylesheets(ComponentClass) {
+		let stylesheets = shadowStylesheets.get(ComponentClass);
+		if (!stylesheets) {
+			stylesheets = [];
+			shadowStylesheets.set(ComponentClass, stylesheets);
+		}
+		return stylesheets;
+	}
+	/**
+	* Sets the cached shadow assets for a component class.
+	* @param {typeof Component} ComponentClass The component constructor.
+	* @param {object} [options] The shadow asset options.
+	* @param {Iterable<HTMLStyleElement>} [options.styleBlocks=[]] The shadow style blocks.
+	* @param {Iterable<HTMLLinkElement>} [options.stylesheets=[]] The shadow stylesheet links.
+	*/
+	function setShadowAssets(ComponentClass, { styleBlocks = [], stylesheets = [] } = {}) {
+		shadowStyleBlocks.set(ComponentClass, [...styleBlocks]);
+		shadowStylesheets.set(ComponentClass, [...stylesheets]);
+	}
+
+//#endregion
 //#region src/slots.js
 /** @import { default as Component } from './component.js'; */
 	/**
@@ -1240,30 +1258,6 @@
 			if (!slot) continue;
 			slot.assign(element);
 		}
-	}
-
-//#endregion
-//#region src/state.js
-/** @import { default as Component } from './component.js'; */
-	/**
-	* Parses component state from non-framework attributes and removes them from the host.
-	* @param {Component} component The component to populate with state.
-	*/
-	function parseState(component) {
-		for (const attr of [...component.attributes]) {
-			if (attr.name === "slot" || attr.name.startsWith("x:")) continue;
-			let value;
-			try {
-				value = createFunction(component, ["state", attr.name], `return ${attr.value};`).call(component);
-			} catch {
-				value = attr.value;
-			}
-			if (attr.name === "state" && isPlainObject(value)) component.state.set(value);
-			else component.state[attr.name] = value;
-			component.removeAttribute(attr.name);
-		}
-		const initialState = takeInitialState(component);
-		if (initialState) component.state.set(initialState);
 	}
 
 //#endregion
@@ -1595,7 +1589,24 @@
 
 //#endregion
 //#region src/loader.js
-/**
+	var loadedScripts = /* @__PURE__ */ new Map();
+	var loadedStylesheets = /* @__PURE__ */ new Map();
+	var loadingComponents = /* @__PURE__ */ new Set();
+	/**
+	* Registers scripts and stylesheets that are already present in a document.
+	* @param {Document|Element} [root=document] The root whose resources should be registered.
+	*/
+	function registerLoadedResources(root = document) {
+		for (const script of root.querySelectorAll("script[src]")) {
+			if (!script.getAttribute("src")?.trim() || loadedScripts.has(script.src)) continue;
+			loadedScripts.set(script.src, Promise.resolve());
+		}
+		for (const stylesheet of root.querySelectorAll("link[rel=\"stylesheet\"]")) {
+			if (!stylesheet.getAttribute("href")?.trim() || loadedStylesheets.has(stylesheet.href)) continue;
+			loadedStylesheets.set(stylesheet.href, Promise.resolve());
+		}
+	}
+	/**
 	* Parses a shadow mode directive from comment nodes.
 	* @param {HTMLElement} container The container element to scan.
 	* @returns {'open'|'closed'|null} The parsed shadow mode, or `null` if none was declared.
@@ -1641,22 +1652,22 @@
 			const source = sourceScript.getAttribute("src")?.trim();
 			if (!source) continue;
 			const src = new URL(source, templateUrl).href;
-			if (!(src in loadedScripts)) {
+			if (!loadedScripts.has(src)) {
 				const script = document.createElement("script");
 				script.setAttribute("src", src);
 				script.setAttribute("type", "text/javascript");
 				script.async = false;
-				loadedScripts[src] = new Promise((resolve, reject) => {
+				loadedScripts.set(src, new Promise((resolve, reject) => {
 					script.onload = () => resolve();
 					script.onerror = () => {
 						script.remove();
-						delete loadedScripts[src];
+						loadedScripts.delete(src);
 						reject(/* @__PURE__ */ new Error(`Failed to load script "${src}"`));
 					};
-				});
+				}));
 				document.head.appendChild(script);
 			}
-			promises.push(loadedScripts[src]);
+			promises.push(loadedScripts.get(src));
 		}
 		for (const stylesheet of stylesheets) {
 			const source = stylesheet.getAttribute("href")?.trim();
@@ -1664,18 +1675,18 @@
 			const href = new URL(source, templateUrl).href;
 			stylesheet.setAttribute("href", href);
 			if (componentShadowMode) continue;
-			if (!(href in loadedStylesheets)) {
-				loadedStylesheets[href] = new Promise((resolve, reject) => {
+			if (!loadedStylesheets.has(href)) {
+				loadedStylesheets.set(href, new Promise((resolve, reject) => {
 					stylesheet.onload = () => resolve();
 					stylesheet.onerror = () => {
 						stylesheet.remove();
-						delete loadedStylesheets[href];
+						loadedStylesheets.delete(href);
 						reject(/* @__PURE__ */ new Error(`Failed to load stylesheet "${href}"`));
 					};
-				});
+				}));
 				document.head.appendChild(stylesheet);
 			}
-			promises.push(loadedStylesheets[href]);
+			promises.push(loadedStylesheets.get(href));
 		}
 		if (!componentShadowMode) for (const styleBlock of styleBlocks) document.head.appendChild(styleBlock);
 		return Promise.all(promises).then(() => {
@@ -1698,7 +1709,6 @@
 				styleBlocks
 			});
 			customElements.define(tagName, ComponentClass);
-			loaded[tagName] = true;
 		});
 	}
 	/**
@@ -1714,17 +1724,14 @@
 			if (node.nodeType !== Node.ELEMENT_NODE) continue;
 			const tagName = node.tagName.toLowerCase();
 			if (!isComponent(tagName) || customElements.get(tagName)) continue;
-			if (loaded[tagName]) continue;
-			loaded[tagName] = true;
+			if (loadingComponents.has(tagName)) continue;
+			loadingComponents.add(tagName);
 			const url = `${baseUrl}/${tagName}${extension ? "." + extension : ""}`;
 			fetch(url).then(async (response) => {
 				if (!response.ok) throw new Error(`Failed to load component "${tagName}" (${response.status})`);
 				const content = await response.text();
 				return define(tagName, content, response.url || url);
-			}).catch((error) => {
-				delete loaded[tagName];
-				throw error;
-			});
+			}).finally(() => loadingComponents.delete(tagName));
 		}
 	}
 
@@ -1851,18 +1858,7 @@
 	};
 	var bootstrapCallback = () => {
 		const elements = document.body.querySelectorAll(":not(script, link[rel=\"stylesheet\"], style)");
-		for (const script of document.querySelectorAll("script[src]")) {
-			if (!script.getAttribute("src")?.trim()) continue;
-			const src = script.src;
-			if (src in loadedScripts) continue;
-			loadedScripts[src] = Promise.resolve();
-		}
-		for (const stylesheet of document.querySelectorAll("link[rel=\"stylesheet\"]")) {
-			if (!stylesheet.getAttribute("href")?.trim()) continue;
-			const href = stylesheet.href;
-			if (href in loadedStylesheets) continue;
-			loadedStylesheets[href] = Promise.resolve();
-		}
+		registerLoadedResources();
 		if (!intersectionObserver) intersectionObserver = new IntersectionObserver((entries) => {
 			for (const entry of entries) for (const component of findComponentChain(entry.target)) {
 				if (entry.isIntersecting === component.visible) continue;

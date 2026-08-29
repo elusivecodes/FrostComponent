@@ -1,6 +1,32 @@
 import Component from './component.js';
 import { createFunction, isComponent } from './helpers.js';
-import { loaded, loadedScripts, loadedStylesheets, setShadowAssets } from './vars.js';
+import { setShadowAssets } from './shadow-assets.js';
+
+const loadedScripts = new Map();
+const loadedStylesheets = new Map();
+const loadingComponents = new Set();
+
+/**
+ * Registers scripts and stylesheets that are already present in a document.
+ * @param {Document|Element} [root=document] The root whose resources should be registered.
+ */
+export function registerLoadedResources(root = document) {
+    for (const script of root.querySelectorAll('script[src]')) {
+        if (!script.getAttribute('src')?.trim() || loadedScripts.has(script.src)) {
+            continue;
+        }
+
+        loadedScripts.set(script.src, Promise.resolve());
+    }
+
+    for (const stylesheet of root.querySelectorAll('link[rel="stylesheet"]')) {
+        if (!stylesheet.getAttribute('href')?.trim() || loadedStylesheets.has(stylesheet.href)) {
+            continue;
+        }
+
+        loadedStylesheets.set(stylesheet.href, Promise.resolve());
+    }
+};
 
 /**
  * Parses a shadow mode directive from comment nodes.
@@ -76,26 +102,26 @@ function define(tagName, html, templateUrl) {
 
         const src = new URL(source, templateUrl).href;
 
-        if (!(src in loadedScripts)) {
+        if (!loadedScripts.has(src)) {
             const script = document.createElement('script');
 
             script.setAttribute('src', src);
             script.setAttribute('type', 'text/javascript');
             script.async = false;
 
-            loadedScripts[src] = new Promise((resolve, reject) => {
+            loadedScripts.set(src, new Promise((resolve, reject) => {
                 script.onload = () => resolve();
                 script.onerror = () => {
                     script.remove();
-                    delete loadedScripts[src];
+                    loadedScripts.delete(src);
                     reject(new Error(`Failed to load script "${src}"`));
                 };
-            });
+            }));
 
             document.head.appendChild(script);
         }
 
-        promises.push(loadedScripts[src]);
+        promises.push(loadedScripts.get(src));
     }
 
     // load stylesheets/style blocks
@@ -113,20 +139,20 @@ function define(tagName, html, templateUrl) {
             continue;
         }
 
-        if (!(href in loadedStylesheets)) {
-            loadedStylesheets[href] = new Promise((resolve, reject) => {
+        if (!loadedStylesheets.has(href)) {
+            loadedStylesheets.set(href, new Promise((resolve, reject) => {
                 stylesheet.onload = () => resolve();
                 stylesheet.onerror = () => {
                     stylesheet.remove();
-                    delete loadedStylesheets[href];
+                    loadedStylesheets.delete(href);
                     reject(new Error(`Failed to load stylesheet "${href}"`));
                 };
-            });
+            }));
 
             document.head.appendChild(stylesheet);
         }
 
-        promises.push(loadedStylesheets[href]);
+        promises.push(loadedStylesheets.get(href));
     }
 
     if (!componentShadowMode) {
@@ -174,7 +200,6 @@ function define(tagName, html, templateUrl) {
         });
 
         customElements.define(tagName, ComponentClass);
-        loaded[tagName] = true;
     });
 };
 
@@ -201,11 +226,11 @@ export function load(nodes, { baseUrl = null, extension = null } = {}) {
             continue;
         }
 
-        if (loaded[tagName]) {
+        if (loadingComponents.has(tagName)) {
             continue;
         }
 
-        loaded[tagName] = true;
+        loadingComponents.add(tagName);
 
         const url = `${baseUrl}/${tagName}${extension ? '.' + extension : ''}`;
 
@@ -218,9 +243,6 @@ export function load(nodes, { baseUrl = null, extension = null } = {}) {
                 const content = await response.text();
                 return define(tagName, content, response.url || url);
             })
-            .catch((error) => {
-                delete loaded[tagName];
-                throw error;
-            });
+            .finally(() => loadingComponents.delete(tagName));
     }
 };
