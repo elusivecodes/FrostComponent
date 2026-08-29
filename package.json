@@ -1,6 +1,6 @@
 {
     "name": "@fr0st/component",
-    "version": "2.0.2",
+    "version": "2.1.0",
     "private": false,
     "description": "Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading.",
     "keywords": [
@@ -51,15 +51,17 @@
         "build": "vite build && vite build --mode umd",
         "lint": "eslint",
         "test": "npm run build && npm run test:browser",
-        "test:browser": "playwright test --forbid-only"
+        "test:browser": "playwright test --forbid-only",
+        "test:coverage": "playwright test --config=playwright.coverage.config.js --forbid-only"
     },
     "dependencies": {
-        "@fr0st/state": "^1.1.0"
+        "@fr0st/state": "^1.1.1"
     },
     "devDependencies": {
-        "@fr0st/eslint-config": "^5.0.1",
+        "@fr0st/eslint-config": "^5.0.2",
         "@playwright/test": "^1.62.1",
         "eslint": "^10.9.1",
+        "monocart-reporter": "^2.12.6",
         "vite": "^8.2.2"
     },
     "engines": {

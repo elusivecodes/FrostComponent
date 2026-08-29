@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { attachMethod, defineComponent, flushTasks, initializePage, waitForComponent } from './support/utils.js';
+import { expect, test } from '#test';
+import { attachMethod, defineComponent, flushTasks, initializePage, waitForComponent } from '../support/utils.js';
 
 test.describe('Component lifecycle', () => {
     test.beforeEach(async ({ page }) => {

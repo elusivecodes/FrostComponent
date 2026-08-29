@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { initializePage } from '../support/utils.js';
+import { expect, test } from '#test';
+import { initializePage } from '../../support/utils.js';
 
 test.describe('Component assets', () => {
     test.beforeEach(async ({ page }) => {

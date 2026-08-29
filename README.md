@@ -1,6 +1,7 @@
 # FrostComponent
 
-[![CI](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml/badge.svg)](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml)
+[![CI](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/elusivecodes/FrostComponent/branch/main/graph/badge.svg)](https://codecov.io/gh/elusivecodes/FrostComponent)
 [![npm version](https://img.shields.io/npm/v/%40fr0st%2Fcomponent?style=flat-square)](https://www.npmjs.com/package/@fr0st/component)
 [![npm downloads](https://img.shields.io/npm/dm/%40fr0st%2Fcomponent?style=flat-square)](https://www.npmjs.com/package/@fr0st/component)
 [![JS gzip size](https://img.badgesize.io/elusivecodes/FrostComponent/main/dist/frost-component.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/elusivecodes/FrostComponent/blob/main/dist/frost-component.min.js)
@@ -22,13 +23,19 @@ Native JavaScript stateful web components with reactive bindings, slots, shadow 
 
 ## Installation
 
-### Bundlers / browser projects
+### Browser projects / bundlers
 
 ```bash
 npm i @fr0st/component
 ```
 
-FrostComponent is ESM-only. Import the default `Component` export into browser-targeted bundles and apps.
+FrostComponent's package entry point is ESM-only. Import the default `Component` export in browser projects and bundlers.
+
+```js
+import Component from '@fr0st/component';
+
+Component.bootstrap({ baseUrl: '/components', extension: 'html' });
+```
 
 ### Browser (ESM)
 
@@ -64,7 +71,9 @@ Load the bundle from your own copy or a CDN:
 
 The browser bundle exposes `globalThis.Component`. Call `Component.bootstrap(...)` to start the runtime and register built-ins such as `x-suspense`.
 
-### Content Security Policy
+The package root resolves to the prebuilt ESM bundle. Published files under `dist/` and `src/` are also available through matching package subpaths.
+
+## Content Security Policy
 
 FrostComponent uses the `Function` constructor for full binding expressions, non-method event handlers, JavaScript-valued host attributes, and inline scripts in autoloaded components. Using these features requires `'unsafe-eval'` in the CSP `script-src` directive; a nonce or hash does not replace this permission.
 

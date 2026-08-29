@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { defineComponent, initializePage, waitForComponent } from './support/utils.js';
+import { expect, test } from '#test';
+import { defineComponent, initializePage, waitForComponent } from '../support/utils.js';
 
 test.describe('Component constraints', () => {
     test.beforeEach(async ({ page }) => {

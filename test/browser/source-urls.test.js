@@ -1,5 +1,5 @@
-import { expect, test } from '@playwright/test';
-import { defineComponent, initializePage } from './support/utils.js';
+import { expect, test } from '#test';
+import { defineComponent, initializePage } from '../support/utils.js';
 
 test.describe('Dynamic source URLs', () => {
     test.beforeEach(async ({ page, browserName }) => {

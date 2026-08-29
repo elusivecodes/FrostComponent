@@ -175,7 +175,8 @@
 	* state accessors are available via `store.use(key)` or `store(key)`.
 	* Missing string-key reads return `undefined`. Reads made during effect
 	* tracking subscribe to later assignments without exposing the key.
-	* API keys are reserved and cannot be used as state keys.
+	* API keys and non-configurable Function keys are reserved and cannot be used
+	* as state keys.
 	*/
 	var StateStore = class StateStore extends Function {
 		#state = /* @__PURE__ */ new Map();
@@ -218,9 +219,15 @@
 			if (value instanceof StateStore) return value;
 			return StateStore.#mergeValue(void 0, value, Boolean(options.deep), /* @__PURE__ */ new WeakMap());
 		}
-		static #isReservedStateKey(key) {
-			return typeof key === "string" && Object.prototype.hasOwnProperty.call(StateStore.prototype, key);
-		}
+		/**
+		* Wraps or merges a plain-object value while preserving cycles and shared references.
+		* @template T
+		* @param {*} store The existing value that may be reused as the target store.
+		* @param {T} value The value to wrap or merge.
+		* @param {boolean} deep Whether to process nested plain objects recursively.
+		* @param {WeakMap<object, StateStore>} stores The previously visited source objects and their stores.
+		* @returns {StateStore|T} The merged store, or the original non-plain value.
+		*/
 		static #mergeValue(store, value, deep, stores) {
 			if (!isPlainObject$1(value)) return value;
 			if (stores.has(value)) return stores.get(value);
@@ -237,6 +244,10 @@
 		*/
 		constructor() {
 			super();
+			for (const key of Reflect.ownKeys(this)) {
+				if (typeof key !== "string") continue;
+				if (Reflect.getOwnPropertyDescriptor(this, key)?.configurable) Reflect.deleteProperty(this, key);
+			}
 			const proxy = new Proxy(this, {
 				apply(target, thisArg, args) {
 					if (!args.length) return proxy;
@@ -244,7 +255,7 @@
 				},
 				get(target, prop) {
 					if (typeof prop === "symbol") return Reflect.get(target, prop, target);
-					if (StateStore.#isReservedStateKey(prop)) {
+					if (target.#isReservedStateKey(prop)) {
 						const value = Reflect.get(target, prop, target);
 						if (typeof value === "function") return value.bind(target);
 						return value;
@@ -263,7 +274,7 @@
 				},
 				has(target, prop) {
 					if (typeof prop === "symbol") return Reflect.has(target, prop);
-					return StateStore.#isReservedStateKey(prop) || target.has(prop);
+					return target.#isReservedStateKey(prop) || target.has(prop);
 				},
 				ownKeys(target) {
 					const baseKeys = Reflect.ownKeys(target);
@@ -288,7 +299,7 @@
 		}
 		/**
 		* Retrieves the stored state keys.
-		* Reserved API keys are not included.
+		* Reserved keys are not included.
 		* @returns {IterableIterator<string>} The key iterator.
 		*/
 		keys() {
@@ -301,7 +312,7 @@
 		*/
 		set(data) {
 			const entries = Object.entries(data);
-			for (const [key] of entries) if (StateStore.#isReservedStateKey(key)) throw new TypeError(`"${key}" is a reserved StateStore key`);
+			for (const [key] of entries) if (this.#isReservedStateKey(key)) throw new TypeError(`"${key}" is a reserved StateStore key`);
 			for (const [key, value] of entries) this.#assignKey(key, value);
 		}
 		/**
@@ -311,10 +322,10 @@
 		* @param {string} key The state key.
 		* @param {T} [defaultValue] The default value when creating.
 		* @returns {StateAccessor<T>} The state accessor for the key.
-		* @throws {TypeError} If `key` is reserved for the `StateStore` API.
+		* @throws {TypeError} If `key` is reserved by `StateStore`.
 		*/
 		use(key, defaultValue) {
-			if (StateStore.#isReservedStateKey(key)) throw new TypeError(`"${key}" is a reserved StateStore key`);
+			if (this.#isReservedStateKey(key)) throw new TypeError(`"${key}" is a reserved StateStore key`);
 			if (this.#state.has(key)) {
 				const state = this.#state.get(key);
 				if (!this.has(key)) {
@@ -328,8 +339,14 @@
 			this.#visibleKeys.add(key);
 			return state;
 		}
+		/**
+		* Creates or updates a visible state key.
+		* @param {string} key The state key.
+		* @param {*} value The value to store.
+		* @throws {TypeError} If `key` is reserved by `StateStore`.
+		*/
 		#assignKey(key, value) {
-			if (StateStore.#isReservedStateKey(key)) throw new TypeError(`"${key}" is a reserved StateStore key`);
+			if (this.#isReservedStateKey(key)) throw new TypeError(`"${key}" is a reserved StateStore key`);
 			if (this.#state.has(key)) {
 				this.#visibleKeys.add(key);
 				this.#state.get(key).value = value;
@@ -339,6 +356,21 @@
 			this.#state.set(key, state);
 			this.#visibleKeys.add(key);
 		}
+		/**
+		* Checks whether a key belongs to the store API or a non-configurable Function property.
+		* @param {string|symbol} key The candidate property key.
+		* @returns {boolean} Whether the key cannot be used for state.
+		*/
+		#isReservedStateKey(key) {
+			if (typeof key !== "string") return false;
+			if (Object.prototype.hasOwnProperty.call(StateStore.prototype, key)) return true;
+			return Reflect.getOwnPropertyDescriptor(this, key)?.configurable === false;
+		}
+		/**
+		* Reads a state key, creating a hidden accessor only when an effect is tracking the missing key.
+		* @param {string} key The state key.
+		* @returns {*} The current value, or `undefined` when the key is missing.
+		*/
 		#readKey(key) {
 			if (this.#state.has(key)) return this.#state.get(key).value;
 			if (!isTrackingEffects()) return;

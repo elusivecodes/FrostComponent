@@ -13,7 +13,7 @@ export default {
             use: { browserName: 'webkit' },
         },
     ],
-    testDir: './test',
+    testDir: './test/browser',
     use: {
         headless: true,
     },
