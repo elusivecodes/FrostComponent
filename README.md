@@ -1,11 +1,11 @@
-# FrostComponent
+# Frost Component
 
-[![CI](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/elusivecodes/FrostComponent/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/elusivecodes/FrostComponent/branch/main/graph/badge.svg)](https://codecov.io/gh/elusivecodes/FrostComponent)
+[![CI](https://github.com/frost-js/component/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/frost-js/component/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/frost-js/component/branch/main/graph/badge.svg)](https://codecov.io/gh/frost-js/component)
 [![npm version](https://img.shields.io/npm/v/%40fr0st%2Fcomponent?style=flat-square)](https://www.npmjs.com/package/@fr0st/component)
 [![npm downloads](https://img.shields.io/npm/dm/%40fr0st%2Fcomponent?style=flat-square)](https://www.npmjs.com/package/@fr0st/component)
-[![JS gzip size](https://img.badgesize.io/elusivecodes/FrostComponent/main/dist/frost-component.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/elusivecodes/FrostComponent/blob/main/dist/frost-component.min.js)
-[![license](https://img.shields.io/github/license/elusivecodes/FrostComponent?style=flat-square)](./LICENSE)
+[![JS gzip size](https://img.badgesize.io/frost-js/component/main/dist/frost-component.min.js?compression=gzip&label=JS%20gzip%20size&style=flat-square)](https://github.com/frost-js/component/blob/main/dist/frost-component.min.js)
+[![license](https://img.shields.io/github/license/frost-js/component?style=flat-square)](./LICENSE)
 
 Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading, with dynamic component loading and no compilation step.
 
@@ -29,7 +29,7 @@ Native JavaScript stateful web components with reactive bindings, slots, shadow 
 npm i @fr0st/component
 ```
 
-FrostComponent's package entry point is ESM-only. Import the default `Component` export in browser projects and bundlers.
+Frost Component's package entry point is ESM-only. Import the default `Component` export in browser projects and bundlers.
 
 ```js
 import Component from '@fr0st/component';
@@ -75,7 +75,7 @@ The package root resolves to the prebuilt ESM bundle. Published files under `dis
 
 ## Content Security Policy
 
-FrostComponent uses the `Function` constructor for full binding expressions, non-method event handlers, JavaScript-valued host attributes, and inline scripts in autoloaded components. Using these features requires `'unsafe-eval'` in the CSP `script-src` directive; a nonce or hash does not replace this permission.
+Frost Component uses the `Function` constructor for full binding expressions, non-method event handlers, JavaScript-valued host attributes, and inline scripts in autoloaded components. Using these features requires `'unsafe-eval'` in the CSP `script-src` directive; a nonce or hash does not replace this permission.
 
 Where supported, dynamically compiled code uses stable `frost-component://` source URLs so bindings, event handlers, state attributes, and inline component scripts are easier to identify in stack traces and browser developer tools.
 
@@ -144,11 +144,11 @@ customElements.define('x-greeting', XGreeting);
 
 JS-defined classes can also opt into shadow DOM with `static shadowMode = 'open'` or `static shadowMode = 'closed'`.
 
-TypeScript note: FrostComponent is written in JavaScript and uses JSDoc types, which most editors surface as IntelliSense.
+TypeScript note: Frost Component is written in JavaScript and uses JSDoc types, which most editors surface as IntelliSense.
 
 ## Authoring Model
 
-FrostComponent revolves around a small base class and declarative template bindings.
+Frost Component revolves around a small base class and declarative template bindings.
 
 - Component tag names must begin with `x-`
 - Components must render exactly one root element
@@ -306,7 +306,7 @@ this.state.use('tags', []);
 
 ## Control Flow
 
-FrostComponent supports conditional and loop blocks directly in templates.
+Frost Component supports conditional and loop blocks directly in templates.
 
 ### Conditionals
 
@@ -327,7 +327,7 @@ Notes:
 
 ### Loops
 
-`x:each` is used on component elements, not plain DOM elements. FrostComponent clones the component, assigns each item into its state, and reuses initialized instances when identifiers stay stable.
+`x:each` is used on component elements, not plain DOM elements. Frost Component clones the component, assigns each item into its state, and reuses initialized instances when identifiers stay stable.
 
 ```html
 <x-todo-item x:each="items" x:id="id"></x-todo-item>
@@ -359,7 +359,7 @@ Slots work in both light DOM and shadow DOM components.
 </div>
 ```
 
-In light DOM components, FrostComponent replaces descendant `<slot>` elements with markers and moves matching children into place. Fallback content remains until the first node is assigned. In shadow mode, assigned children continue to behave like native slotted content.
+In light DOM components, Frost Component replaces descendant `<slot>` elements with markers and moves matching children into place. Fallback content remains until the first node is assigned. In shadow mode, assigned children continue to behave like native slotted content.
 
 ## HTML Template Components
 
@@ -396,7 +396,7 @@ This keeps the host element and renders the template inside a shadow root. Witho
 
 ## Component API
 
-FrostComponent exports a single default class:
+Frost Component exports a single default class:
 
 ```js
 import Component from '@fr0st/component';
@@ -542,4 +542,4 @@ npm run build
 
 ## License
 
-FrostComponent is released under the [MIT License](./LICENSE).
+Frost Component is released under the [MIT License](./LICENSE).

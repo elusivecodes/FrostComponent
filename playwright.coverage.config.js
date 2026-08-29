@@ -20,10 +20,10 @@ export default defineConfig({
         [
             'monocart-reporter',
             {
-                name: 'FrostComponent Coverage',
+                name: 'Frost Component Coverage',
                 outputFile: './test-results/coverage/index.html',
                 coverage: {
-                    name: 'FrostComponent Source Coverage',
+                    name: 'Frost Component Source Coverage',
                     outputDir: './coverage',
                     reports: [
                         'console-summary',

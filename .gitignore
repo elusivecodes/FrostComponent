@@ -1,4 +1,7 @@
+# Dependencies
 node_modules/
-test-results/
-playwright-report/
+
+# Test and coverage output
 coverage/
+playwright-report/
+test-results/

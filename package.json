@@ -1,6 +1,6 @@
 {
     "name": "@fr0st/component",
-    "version": "2.1.1",
+    "version": "2.1.2",
     "private": false,
     "description": "Native JavaScript stateful web components with reactive bindings, slots, shadow DOM, suspense, and HTML template autoloading.",
     "keywords": [
@@ -15,14 +15,14 @@
         "templating",
         "web-components"
     ],
-    "homepage": "https://github.com/elusivecodes/FrostComponent",
+    "homepage": "https://github.com/frost-js/component",
     "bugs": {
-        "url": "https://github.com/elusivecodes/FrostComponent/issues",
+        "url": "https://github.com/frost-js/component/issues",
         "email": "elusivecodes@gmail.com"
     },
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/elusivecodes/FrostComponent.git"
+        "url": "git+https://github.com/frost-js/component.git"
     },
     "license": "MIT",
     "author": "Elusive <elusivecodes@gmail.com>",
@@ -55,10 +55,10 @@
         "test:coverage": "playwright test --config=playwright.coverage.config.js --forbid-only"
     },
     "dependencies": {
-        "@fr0st/state": "^1.1.1"
+        "@fr0st/state": "^1.1.2"
     },
     "devDependencies": {
-        "@fr0st/eslint-config": "^5.0.2",
+        "@fr0st/eslint-config": "^5.0.3",
         "@playwright/test": "^1.62.1",
         "eslint": "^10.9.1",
         "monocart-reporter": "^2.12.6",
