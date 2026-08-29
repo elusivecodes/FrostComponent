@@ -31,7 +31,7 @@ export default defineConfig({
                         'lcovonly',
                     ],
                     entryFilter: (entry) => normalizePath(entry.url).endsWith('/dist/frost-component.js'),
-                    sourceFilter: (sourcePath) => /(^|\/)src\//u.test(normalizePath(sourcePath)),
+                    sourceFilter: (sourcePath) => normalizePath(sourcePath).startsWith('src/'),
                     sourceMapResolver: (_url, defaultResolver) => defaultResolver(sourceMapUrl),
                     all: './src',
                 },
